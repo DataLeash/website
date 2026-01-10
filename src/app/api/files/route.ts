@@ -1,0 +1,125 @@
+import { createClient } from '@/lib/supabase-server'
+import { NextRequest, NextResponse } from 'next/server'
+
+// GET /api/files - Get all files for current user
+export async function GET() {
+    try {
+        const supabase = await createClient()
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const { data: files, error } = await supabase
+            .from('files')
+            .select(`
+        *,
+        access_logs (count),
+        permissions (count)
+      `)
+            .eq('owner_id', user.id)
+            .order('created_at', { ascending: false })
+
+        if (error) {
+            return NextResponse.json(
+                { error: error.message },
+                { status: 500 }
+            )
+        }
+
+        return NextResponse.json({ files })
+    } catch (error) {
+        console.error('Get files error:', error)
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        )
+    }
+}
+
+// DELETE /api/files - Kill all files (chain kill)
+export async function DELETE(request: NextRequest) {
+    try {
+        const supabase = await createClient()
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const { confirmation } = await request.json()
+
+        if (confirmation !== 'DESTROY ALL') {
+            return NextResponse.json(
+                { error: 'Invalid confirmation code' },
+                { status: 400 }
+            )
+        }
+
+        // Get all user's file IDs first
+        const { data: userFiles } = await supabase
+            .from('files')
+            .select('id')
+            .eq('owner_id', user.id)
+
+        const fileIds = userFiles?.map(f => f.id) || []
+
+        if (fileIds.length > 0) {
+            // Revoke all permissions
+            await supabase
+                .from('permissions')
+                .delete()
+                .in('file_id', fileIds)
+
+            // Delete all key shards
+            await supabase
+                .from('key_shards')
+                .delete()
+                .in('file_id', fileIds)
+        }
+
+        // Mark files as destroyed
+        const { data: files, error } = await supabase
+            .from('files')
+            .update({
+                is_destroyed: true,
+                destroyed_at: new Date().toISOString(),
+            })
+            .eq('owner_id', user.id)
+            .select()
+
+        if (error) {
+            return NextResponse.json(
+                { error: error.message },
+                { status: 500 }
+            )
+        }
+
+        // Log the chain kill event
+        await supabase.from('access_logs').insert({
+            user_id: user.id,
+            action: 'chain_kill',
+            timestamp: new Date().toISOString(),
+        })
+
+        return NextResponse.json({
+            message: 'All files destroyed',
+            destroyed_count: files?.length || 0,
+        })
+    } catch (error) {
+        console.error('Chain kill error:', error)
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        )
+    }
+}
