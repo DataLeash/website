@@ -3,7 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization for Resend
+function getResendClient() {
+    if (!process.env.RESEND_API_KEY) {
+        return null
+    }
+    return new Resend(process.env.RESEND_API_KEY)
+}
 
 // Email function for file sharing
 async function sendFileShareEmail(params: {
@@ -14,6 +20,11 @@ async function sendFileShareEmail(params: {
     expiresAt: string | null
 }) {
     try {
+        const resend = getResendClient()
+        if (!resend) {
+            console.log('Resend not configured, skipping email')
+            return
+        }
         await resend.emails.send({
             from: process.env.RESEND_FROM_EMAIL || 'Data Leash <noreply@dataleash.app>',
             to: [params.to],

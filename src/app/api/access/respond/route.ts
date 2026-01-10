@@ -68,17 +68,19 @@ export async function POST(request: NextRequest) {
 
         // Send email to viewer about the decision
         try {
-            const resend = new Resend(process.env.RESEND_API_KEY)
-            await resend.emails.send({
-                from: process.env.RESEND_FROM_EMAIL || 'Data Leash <noreply@dataleash.app>',
-                to: [accessRequest.viewer_email],
-                subject: action === 'approve'
-                    ? `✓ Access Granted: ${accessRequest.files.original_name}`
-                    : `✗ Access Denied: ${accessRequest.files.original_name}`,
-                html: action === 'approve'
-                    ? `<p>Your request to view "${accessRequest.files.original_name}" has been <strong style="color: #00d4ff;">approved</strong>.</p><p>You can now view the file by returning to the share link.</p>`
-                    : `<p>Your request to view "${accessRequest.files.original_name}" has been <strong style="color: #ef4444;">denied</strong>.</p><p>If you believe this is a mistake, please contact the file owner.</p>`
-            })
+            if (process.env.RESEND_API_KEY) {
+                const resend = new Resend(process.env.RESEND_API_KEY)
+                await resend.emails.send({
+                    from: process.env.RESEND_FROM_EMAIL || 'Data Leash <noreply@dataleash.app>',
+                    to: [accessRequest.viewer_email],
+                    subject: action === 'approve'
+                        ? `✓ Access Granted: ${accessRequest.files.original_name}`
+                        : `✗ Access Denied: ${accessRequest.files.original_name}`,
+                    html: action === 'approve'
+                        ? `<p>Your request to view "${accessRequest.files.original_name}" has been <strong style="color: #00d4ff;">approved</strong>.</p><p>You can now view the file by returning to the share link.</p>`
+                        : `<p>Your request to view "${accessRequest.files.original_name}" has been <strong style="color: #ef4444;">denied</strong>.</p><p>If you believe this is a mistake, please contact the file owner.</p>`
+                })
+            }
         } catch (e) {
             console.log('Email to viewer failed:', e)
         }

@@ -397,6 +397,10 @@ async function sendAccessRequestEmail(params: {
     ipInfo?: any
     fingerprint?: any
 }) {
+    if (!process.env.RESEND_API_KEY) {
+        console.log('Resend not configured, skipping owner email')
+        return
+    }
     const resend = new Resend(process.env.RESEND_API_KEY)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
