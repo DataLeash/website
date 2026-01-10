@@ -1,6 +1,17 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization - only create Resend client when needed
+let resendClient: Resend | null = null
+
+function getResendClient(): Resend {
+    if (!resendClient) {
+        if (!process.env.RESEND_API_KEY) {
+            throw new Error('RESEND_API_KEY is not configured')
+        }
+        resendClient = new Resend(process.env.RESEND_API_KEY)
+    }
+    return resendClient
+}
 
 interface SendOtpEmailParams {
     to: string
@@ -11,6 +22,7 @@ interface SendOtpEmailParams {
 }
 
 export async function sendOtpEmail({ to, viewerName, fileName, ownerName, code }: SendOtpEmailParams) {
+    const resend = getResendClient()
     const { data, error } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'Data Leash <noreply@dataleash.app>',
         to: [to],
@@ -125,6 +137,7 @@ interface SendAccessNotificationParams {
 }
 
 export async function sendAccessNotification({ to, ownerName, viewerName, viewerEmail, fileName, action }: SendAccessNotificationParams) {
+    const resend = getResendClient()
     const actionText = {
         viewed: 'viewed',
         accessed: 'requested access to',
