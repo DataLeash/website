@@ -23,6 +23,7 @@ export async function GET() {
         permissions (count)
       `)
             .eq('owner_id', user.id)
+            .eq('is_destroyed', false)
             .order('created_at', { ascending: false })
 
         if (error) {
@@ -32,7 +33,13 @@ export async function GET() {
             )
         }
 
-        return NextResponse.json({ files })
+        // Transform files to include total_views from settings
+        const transformedFiles = (files || []).map(file => ({
+            ...file,
+            total_views: file.settings?.total_views || file.access_logs?.[0]?.count || 0
+        }))
+
+        return NextResponse.json({ files: transformedFiles })
     } catch (error) {
         console.error('Get files error:', error)
         return NextResponse.json(

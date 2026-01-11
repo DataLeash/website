@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Icon3D } from './Icon3D'
+import { useEffect, useState, useCallback } from 'react'
+import { createClient } from '@/lib/supabase-browser'
+import { Eye, Users, Radio, XCircle, CheckSquare } from 'lucide-react'
 
 interface ActiveSession {
     id: string
@@ -26,8 +27,9 @@ export function ActiveViewers() {
     const [loading, setLoading] = useState(true)
     const [revoking, setRevoking] = useState<string | null>(null)
     const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set())
+    const supabase = createClient()
 
-    const fetchSessions = async () => {
+    const fetchSessions = useCallback(async () => {
         try {
             const res = await fetch('/api/sessions/active')
             const data = await res.json()
@@ -37,14 +39,38 @@ export function ActiveViewers() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
     useEffect(() => {
         fetchSessions()
-        // Refresh every 5 seconds for more real-time feel
-        const interval = setInterval(fetchSessions, 5000)
-        return () => clearInterval(interval)
-    }, [])
+
+        // Subscribe to realtime session changes instead of polling
+        const channel = supabase
+            .channel('active_sessions')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'viewing_sessions' },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        // Refetch to get full session data with joins
+                        fetchSessions()
+                    } else if (payload.eventType === 'DELETE') {
+                        setSessions(prev => prev.filter(s => s.id !== payload.old.id))
+                    } else if (payload.eventType === 'UPDATE') {
+                        fetchSessions()
+                    }
+                }
+            )
+            .subscribe()
+
+        // Fallback: refresh every 30s instead of 5s (reduced from 5s)
+        const interval = setInterval(fetchSessions, 30000)
+
+        return () => {
+            supabase.removeChannel(channel)
+            clearInterval(interval)
+        }
+    }, [fetchSessions, supabase])
 
     const formatDuration = (seconds: number) => {
         if (seconds < 60) return `${seconds}s`
@@ -108,7 +134,9 @@ export function ActiveViewers() {
         return (
             <div className="glass-card p-6">
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <Icon3D type="eye" size="sm" />
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                        <Eye className="w-4 h-4 text-white" />
+                    </div>
                     Active Viewers
                 </h2>
                 <div className="flex justify-center py-4">
@@ -122,10 +150,13 @@ export function ActiveViewers() {
         <div className="glass-card p-6">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Icon3D type="eye" size="sm" />
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                        <Eye className="w-4 h-4 text-white" />
+                    </div>
                     Active Viewers
                     {sessions.length > 0 && (
-                        <span className="ml-2 px-2 py-0.5 bg-[var(--success)] text-black text-xs rounded-full font-semibold">
+                        <span className="ml-2 px-2 py-0.5 bg-[var(--success)] text-black text-xs rounded-full font-semibold flex items-center gap-1">
+                            <Radio className="w-3 h-3 animate-pulse" />
                             {sessions.length} live
                         </span>
                     )}
@@ -133,8 +164,9 @@ export function ActiveViewers() {
                 {sessions.length > 0 && selectedSessions.size > 0 && (
                     <button
                         onClick={revokeSelected}
-                        className="px-3 py-1 bg-[var(--error)] text-white text-sm rounded-lg hover:bg-red-600 transition font-semibold"
+                        className="px-3 py-1 bg-[var(--error)] text-white text-sm rounded-lg hover:bg-red-600 transition font-semibold flex items-center gap-1"
                     >
+                        <XCircle className="w-4 h-4" />
                         Revoke Selected ({selectedSessions.size})
                     </button>
                 )}
@@ -142,8 +174,8 @@ export function ActiveViewers() {
 
             {sessions.length === 0 ? (
                 <div className="text-center py-8">
-                    <div className="mb-3 flex justify-center opacity-50">
-                        <Icon3D type="eye" size="lg" />
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 flex items-center justify-center">
+                        <Eye className="w-8 h-8 text-[var(--success)] opacity-50" />
                     </div>
                     <p className="text-[var(--foreground-muted)] text-sm">No one viewing files right now</p>
                 </div>
@@ -158,6 +190,7 @@ export function ActiveViewers() {
                                     onChange={selectAll}
                                     className="w-4 h-4 rounded border-[var(--primary)]"
                                 />
+                                <CheckSquare className="w-4 h-4 text-[var(--primary)]" />
                                 Select All
                             </label>
                         </div>
@@ -167,8 +200,8 @@ export function ActiveViewers() {
                             <div
                                 key={session.id}
                                 className={`flex items-center gap-4 p-3 rounded-lg transition border ${selectedSessions.has(session.id)
-                                        ? 'bg-[rgba(0,212,255,0.15)] border-[var(--primary)]'
-                                        : 'bg-[rgba(0,212,255,0.05)] border-[rgba(0,212,255,0.1)]'
+                                    ? 'bg-[rgba(0,212,255,0.15)] border-[var(--primary)]'
+                                    : 'bg-[rgba(0,212,255,0.05)] border-[rgba(0,212,255,0.1)]'
                                     }`}
                             >
                                 <input
@@ -177,8 +210,8 @@ export function ActiveViewers() {
                                     onChange={() => toggleSelection(session.id)}
                                     className="w-4 h-4 rounded border-[var(--primary)]"
                                 />
-                                <div className="w-10 h-10 rounded-full bg-[rgba(0,212,255,0.2)] flex items-center justify-center">
-                                    <Icon3D type="users" size="sm" />
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/30 to-violet-600/30 flex items-center justify-center">
+                                    <Users className="w-5 h-5 text-purple-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="font-medium truncate text-white">

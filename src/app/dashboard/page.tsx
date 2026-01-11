@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useAuth, useFiles, useActivity, useStats } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Icon3D } from "@/components/Icon3D";
 import { Sidebar } from "@/components/Sidebar";
 import { PageLoading } from "@/components/LoadingSpinner";
 import { ActiveViewers } from "@/components/ActiveViewers";
 import { DashboardEffects } from "@/components/DashboardEffects";
+import {
+    FolderLock, Eye, Link2, Shield, Upload, Skull, BarChart3,
+    FileText, Activity, CircleDot, FolderOpen, Plus
+} from "lucide-react";
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -60,21 +63,23 @@ export default function DashboardPage() {
                         <p className="text-[var(--foreground-muted)]">Manage your protected files</p>
                     </div>
                     <Link href="/dashboard/upload" className="glow-button px-6 py-3 rounded-lg font-semibold text-black flex items-center gap-2">
-                        <span>+</span> Upload File
+                        <Plus className="w-5 h-5" /> Upload File
                     </Link>
                 </div>
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-4 gap-6 mb-8">
                     {[
-                        { label: "Total Files", value: statsLoading ? "..." : stats.totalFiles.toString(), iconType: "folder", change: "Your protected files" },
-                        { label: "Total Views", value: statsLoading ? "..." : stats.totalViews.toLocaleString(), iconType: "eye", change: "Across all files" },
-                        { label: "Active Shares", value: statsLoading ? "..." : stats.activeShares.toString(), iconType: "link", change: "People with access" },
-                        { label: "Threats Blocked", value: statsLoading ? "..." : stats.threatsBlocked.toString(), iconType: "shield", change: "Security events" },
+                        { label: "Total Files", value: statsLoading ? "..." : stats.totalFiles.toString(), icon: FolderLock, change: "Your protected files", color: "from-cyan-500 to-blue-600" },
+                        { label: "Total Views", value: statsLoading ? "..." : stats.totalViews.toLocaleString(), icon: Eye, change: "Across all files", color: "from-emerald-500 to-green-600" },
+                        { label: "Active Shares", value: statsLoading ? "..." : stats.activeShares.toString(), icon: Link2, change: "People with access", color: "from-purple-500 to-violet-600" },
+                        { label: "Threats Blocked", value: statsLoading ? "..." : stats.threatsBlocked.toString(), icon: Shield, change: "Security events", color: "from-red-500 to-rose-600" },
                     ].map((stat, i) => (
-                        <div key={i} className="glass-card p-6">
+                        <div key={i} className="glass-card p-6 group hover:border-[var(--primary)]/50 transition-all">
                             <div className="flex justify-between items-start mb-4">
-                                <Icon3D type={stat.iconType} size="md" />
+                                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg`}>
+                                    <stat.icon className="w-6 h-6 text-white" />
+                                </div>
                                 <span className="text-2xl font-bold text-gradient">{stat.value}</span>
                             </div>
                             <div className="text-sm font-medium">{stat.label}</div>
@@ -98,7 +103,9 @@ export default function DashboardPage() {
                             <div className="text-center py-8 text-[var(--foreground-muted)]">Loading files...</div>
                         ) : files.length === 0 ? (
                             <div className="text-center py-8">
-                                <div className="text-4xl mb-2">📁</div>
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center">
+                                    <FolderOpen className="w-8 h-8 text-[var(--primary)]" />
+                                </div>
                                 <p className="text-[var(--foreground-muted)]">No files yet</p>
                                 <Link href="/dashboard/upload" className="text-[var(--primary)] text-sm hover:underline mt-2 inline-block">
                                     Upload your first file →
@@ -108,14 +115,18 @@ export default function DashboardPage() {
                             <div className="space-y-3">
                                 {files.slice(0, 5).map((file) => (
                                     <div key={file.id} className="flex items-center gap-4 p-3 rounded-lg bg-[rgba(0,212,255,0.05)] hover:bg-[rgba(0,212,255,0.1)] transition">
-                                        <span className="text-2xl">📄</span>
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center">
+                                            <FileText className="w-5 h-5 text-[var(--primary)]" />
+                                        </div>
                                         <div className="flex-1">
                                             <div className="font-medium">{file.original_name}</div>
                                             <div className="text-xs text-[var(--foreground-muted)]">{formatTime(file.created_at)}</div>
                                         </div>
                                         <div className="text-right">
                                             <div className="text-sm font-semibold">{file.total_views || 0} views</div>
-                                            <div className="text-xs text-[var(--success)]">● Active</div>
+                                            <div className="text-xs text-[var(--success)] flex items-center gap-1">
+                                                <CircleDot className="w-3 h-3" /> Active
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -136,7 +147,9 @@ export default function DashboardPage() {
                             <div className="text-center py-8 text-[var(--foreground-muted)]">Loading activity...</div>
                         ) : logs.length === 0 ? (
                             <div className="text-center py-8">
-                                <div className="text-4xl mb-2">📊</div>
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 flex items-center justify-center">
+                                    <Activity className="w-8 h-8 text-[var(--success)]" />
+                                </div>
                                 <p className="text-[var(--foreground-muted)]">No activity yet</p>
                                 <p className="text-xs text-[var(--foreground-muted)] mt-1">Activity will appear when files are accessed</p>
                             </div>
@@ -185,20 +198,22 @@ export default function DashboardPage() {
                     <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
                     <div className="grid grid-cols-4 gap-4">
                         {[
-                            { iconType: "upload", label: "Upload File", href: "/dashboard/upload" },
-                            { iconType: "link", label: "Share Link", href: "/dashboard/share" },
-                            { iconType: "destroy", label: "Kill All Files", href: "/dashboard/kill", danger: true },
-                            { iconType: "analytics", label: "View Reports", href: "/dashboard/reports" },
+                            { icon: Upload, label: "Upload File", href: "/dashboard/upload", color: "from-cyan-500 to-blue-600" },
+                            { icon: Link2, label: "Share Link", href: "/dashboard/share", color: "from-purple-500 to-violet-600" },
+                            { icon: Skull, label: "Kill All Files", href: "/dashboard/kill", danger: true, color: "from-red-500 to-rose-600" },
+                            { icon: BarChart3, label: "View Reports", href: "/dashboard/reports", color: "from-emerald-500 to-green-600" },
                         ].map((action, i) => (
                             <Link
                                 key={i}
                                 href={action.href}
-                                className={`p-4 rounded-lg text-center transition flex flex-col items-center ${action.danger
+                                className={`p-4 rounded-lg text-center transition flex flex-col items-center group ${action.danger
                                     ? "bg-[rgba(239,68,68,0.1)] border border-[var(--error)] hover:bg-[rgba(239,68,68,0.2)]"
                                     : "bg-[rgba(0,212,255,0.05)] hover:bg-[rgba(0,212,255,0.1)]"
                                     }`}
                             >
-                                <div className="mb-2"><Icon3D type={action.iconType} size="md" /></div>
+                                <div className={`w-12 h-12 mb-2 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg`}>
+                                    <action.icon className="w-6 h-6 text-white" />
+                                </div>
                                 <div className="text-sm font-medium">{action.label}</div>
                             </Link>
                         ))}

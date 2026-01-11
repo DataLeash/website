@@ -16,6 +16,23 @@ function getSupabaseClient() {
     )
 }
 
+// Get IP info for logging
+async function getIPInfo(ip: string): Promise<any> {
+    if (!ip || ip === '::1' || ip === '127.0.0.1') {
+        return { city: 'Localhost', country: 'Development', countryCode: 'XX' }
+    }
+    try {
+        const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,city,country,countryCode,lat,lon,isp`, {
+            signal: AbortSignal.timeout(3000)
+        })
+        const data = await res.json()
+        if (data.status === 'success') {
+            return data
+        }
+    } catch { }
+    return { city: 'Unknown', country: 'Unknown', countryCode: 'XX' }
+}
+
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -24,7 +41,13 @@ export async function GET(
         const supabase = getSupabaseClient()
         const { id: fileId } = await params
 
-        console.log('Decrypting file:', fileId)
+        // Get client IP
+        const forwardedFor = request.headers.get('x-forwarded-for')
+        const realIp = request.headers.get('x-real-ip')
+        const clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || '::1'
+        const userAgent = request.headers.get('user-agent') || ''
+
+        console.log('Decrypting file:', fileId, 'IP:', clientIp)
 
         // Get file record
         const { data: file, error: fileError } = await supabase
@@ -102,13 +125,40 @@ export async function GET(
             decipher.final()
         ])
 
-        // Log the view
+        // Get IP info for logging
+        const ipInfo = await getIPInfo(clientIp)
+
+        // Log the view with full info
         await supabase.from('access_logs').insert({
             file_id: fileId,
             action: 'view',
-            timestamp: new Date().toISOString(),
-            location: { source: 'web_viewer' }
+            ip_address: clientIp,
+            location: {
+                city: ipInfo.city || 'Unknown',
+                country: ipInfo.country || 'Unknown',
+                countryCode: ipInfo.countryCode || 'XX',
+                lat: ipInfo.lat || 0,
+                lon: ipInfo.lon || 0,
+                isp: ipInfo.isp || 'Unknown',
+                userAgent: userAgent.substring(0, 200)
+            },
+            timestamp: new Date().toISOString()
         })
+
+        // Increment view count on file (using settings JSONB or a separate call)
+        const currentViews = file.settings?.total_views || 0
+        await supabase
+            .from('files')
+            .update({
+                settings: {
+                    ...file.settings,
+                    total_views: currentViews + 1,
+                    last_viewed: new Date().toISOString()
+                }
+            })
+            .eq('id', fileId)
+
+        console.log('View logged successfully for file:', fileId)
 
         // Return decrypted file
         return new NextResponse(decrypted, {

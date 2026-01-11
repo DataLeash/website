@@ -285,7 +285,7 @@ export function useNotifications() {
     return { notifications, unreadCount, loading, fetchNotifications, markAsRead, markAllAsRead, refetch }
 }
 
-// Stats hook
+// Stats hook - now uses combined API endpoint for better performance
 export function useStats() {
     const [stats, setStats] = useState({
         totalFiles: 0,
@@ -294,72 +294,29 @@ export function useStats() {
         threatsBlocked: 0,
     })
     const [loading, setLoading] = useState(true)
-    const supabase = createClient()
 
     useEffect(() => {
         const fetchStats = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-
-            if (!user) {
+            try {
+                const res = await fetch('/api/stats')
+                if (res.ok) {
+                    const data = await res.json()
+                    setStats({
+                        totalFiles: data.totalFiles || 0,
+                        totalViews: data.totalViews || 0,
+                        activeShares: data.activeShares || 0,
+                        threatsBlocked: data.threatsBlocked || 0,
+                    })
+                }
+            } catch (error) {
+                console.error('Failed to fetch stats:', error)
+            } finally {
                 setLoading(false)
-                return
             }
-
-            // First, get all file IDs owned by user
-            const { data: userFiles } = await supabase
-                .from('files')
-                .select('id')
-                .eq('owner_id', user.id)
-                .eq('is_destroyed', false)
-
-            const fileIds = userFiles?.map(f => f.id) || []
-
-            // Get file count
-            const totalFiles = fileIds.length
-
-            // Get view count (only if we have files)
-            let viewCount = 0
-            if (fileIds.length > 0) {
-                const { count } = await supabase
-                    .from('access_logs')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('action', 'view')
-                    .in('file_id', fileIds)
-                viewCount = count || 0
-            }
-
-            // Get active shares count
-            let shareCount = 0
-            if (fileIds.length > 0) {
-                const { count } = await supabase
-                    .from('permissions')
-                    .select('*', { count: 'exact', head: true })
-                    .in('file_id', fileIds)
-                shareCount = count || 0
-            }
-
-            // Get threats blocked count
-            let threatCount = 0
-            if (fileIds.length > 0) {
-                const { count } = await supabase
-                    .from('access_logs')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('action', 'blocked')
-                    .in('file_id', fileIds)
-                threatCount = count || 0
-            }
-
-            setStats({
-                totalFiles,
-                totalViews: viewCount,
-                activeShares: shareCount,
-                threatsBlocked: threatCount,
-            })
-            setLoading(false)
         }
 
         fetchStats()
-    }, [supabase])
+    }, [])
 
     return { stats, loading }
 }
