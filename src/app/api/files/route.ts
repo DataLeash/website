@@ -34,10 +34,22 @@ export async function GET() {
         }
 
         // Transform files to include total_views from settings
-        const transformedFiles = (files || []).map(file => ({
-            ...file,
-            total_views: file.settings?.total_views || file.access_logs?.[0]?.count || 0
-        }))
+        const transformedFiles = (files || []).map(file => {
+            // Priority: settings.total_views > access_logs count
+            let viewCount = 0
+
+            if (file.settings?.total_views) {
+                viewCount = file.settings.total_views
+            } else if (file.access_logs && Array.isArray(file.access_logs) && file.access_logs.length > 0) {
+                // Supabase returns [{count: N}] for count queries
+                viewCount = file.access_logs[0]?.count || 0
+            }
+
+            return {
+                ...file,
+                total_views: viewCount
+            }
+        })
 
         return NextResponse.json({ files: transformedFiles })
     } catch (error) {
@@ -92,6 +104,13 @@ export async function DELETE(request: NextRequest) {
                 .from('key_shards')
                 .delete()
                 .in('file_id', fileIds)
+
+            // Kill all active sessions instantly
+            await supabase
+                .from('viewing_sessions')
+                .update({ is_active: false, ended_at: new Date().toISOString() })
+                .in('file_id', fileIds)
+                .eq('is_active', true)
         }
 
         // Mark files as destroyed

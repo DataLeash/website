@@ -160,7 +160,7 @@ function RequestsPageContent() {
 
         setProcessing(request.id);
         try {
-            const res = await fetch('/api/blacklist/add', {
+            const res = await fetch('/api/blacklist', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

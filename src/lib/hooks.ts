@@ -126,22 +126,16 @@ export function useFiles() {
     }
 
     const killFile = async (fileId: string) => {
-        const { error } = await supabase
-            .from('files')
-            .update({ is_destroyed: true, destroyed_at: new Date().toISOString() })
-            .eq('id', fileId)
+        const response = await fetch(`/api/files/${fileId}/kill`, {
+            method: 'POST',
+        })
+        const result = await response.json()
 
-        if (!error) {
-            // Also destroy key shards
-            await supabase
-                .from('key_shards')
-                .update({ is_destroyed: true })
-                .eq('file_id', fileId)
-
+        if (!result.error) {
             fetchFiles()
         }
 
-        return { error }
+        return result
     }
 
     const chainKill = async () => {

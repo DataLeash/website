@@ -15,6 +15,7 @@ interface ChainNode {
     duration: number
     shareCount: number
     isBlocked: boolean
+    isActive: boolean
     children: ChainNode[]
 }
 
@@ -28,7 +29,7 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Get user's files with access logs
+        // Get user's files with access requests
         const { data: files } = await supabase
             .from('files')
             .select('id, original_name, settings')
@@ -39,59 +40,79 @@ export async function GET() {
             return NextResponse.json({ chains: [] })
         }
 
+        // Get active sessions to determine who is currently viewing
+        const { data: activeSessions } = await supabase
+            .from('viewing_sessions')
+            .select('viewer_email, file_id')
+            .in('file_id', files.map(f => f.id))
+            .eq('is_active', true)
+
+        const activeViewerMap = new Map<string, Set<string>>()
+        for (const session of activeSessions || []) {
+            const fileId = session.file_id
+            if (!activeViewerMap.has(fileId)) {
+                activeViewerMap.set(fileId, new Set())
+            }
+            activeViewerMap.get(fileId)!.add(session.viewer_email?.toLowerCase())
+        }
+
         const chains = []
 
         for (const file of files) {
-            // Get access logs for this file
-            const { data: accessLogs } = await supabase
-                .from('access_logs')
+            // Get access requests for this file (has full fingerprint/location data)
+            const { data: accessRequests } = await supabase
+                .from('access_requests')
                 .select('*')
                 .eq('file_id', file.id)
-                .eq('action', 'view')
-                .order('timestamp', { ascending: true })
+                .order('created_at', { ascending: false })
 
-            if (!accessLogs?.length) continue
+            if (!accessRequests?.length) continue
 
-            // Get viewing sessions for duration info
-            const { data: sessions } = await supabase
-                .from('viewing_sessions')
-                .select('*')
-                .eq('file_id', file.id)
-
-            const sessionMap = new Map(sessions?.map(s => [s.viewer_email, s]) || [])
+            const activeEmails = activeViewerMap.get(file.id) || new Set()
+            const activeViewerCount = activeEmails.size
 
             // Build chain nodes
             const chainNodes: ChainNode[] = []
             const viewers = new Set<string>()
 
-            for (const log of accessLogs) {
-                // location JSONB has the info we need
-                const loc = log.location || {}
-                const viewerEmail = loc.viewer_email || log.ip_address || 'unknown'
+            for (const req of accessRequests) {
+                const viewerEmail = req.viewer_email?.toLowerCase() || 'unknown'
                 viewers.add(viewerEmail)
 
-                const session = sessionMap.get(viewerEmail)
-                const userAgent = loc.userAgent || ''
+                // Get location from fingerprint GPS or IP info
+                const fingerprint = req.fingerprint || {}
+                const geo = fingerprint.geolocation || {}
+                const ipInfo = req.ip_info || {}
+
+                const city = ipInfo.city || geo.city || 'Unknown'
+                const country = ipInfo.country || geo.country || 'Unknown'
+                const countryCode = ipInfo.countryCode || 'XX'
+
+                const userAgent = req.user_agent || fingerprint.userAgent || ''
 
                 // Detect device type
                 let device: 'desktop' | 'mobile' | 'tablet' = 'desktop'
                 if (/mobile|android|iphone/i.test(userAgent)) device = 'mobile'
                 else if (/tablet|ipad/i.test(userAgent)) device = 'tablet'
 
+                // Check if this viewer is currently active
+                const isActive = activeEmails.has(viewerEmail)
+
                 const node: ChainNode = {
-                    id: log.id,
-                    accessId: log.id,
-                    viewerName: loc.viewer_name || viewerEmail.split('@')[0] || 'Viewer',
+                    id: req.id,
+                    accessId: req.id,
+                    viewerName: req.viewer_name || viewerEmail.split('@')[0] || 'Viewer',
                     viewerEmail,
                     device,
                     deviceInfo: userAgent.substring(0, 100),
-                    city: loc.city || 'Unknown',
-                    country: loc.country || 'Unknown',
-                    countryCode: loc.countryCode || 'XX',
-                    accessTime: log.timestamp,
-                    duration: session?.viewing_duration || log.session_duration || 0,
+                    city,
+                    country,
+                    countryCode,
+                    accessTime: req.created_at,
+                    duration: 0, // Will be calculated from session if available
                     shareCount: 0,
-                    isBlocked: log.action === 'blocked',
+                    isBlocked: req.status === 'denied',
+                    isActive,
                     children: []
                 }
 
@@ -102,8 +123,9 @@ export async function GET() {
                 chains.push({
                     fileId: file.id,
                     fileName: file.original_name,
-                    totalViews: file.settings?.total_views || accessLogs.length,
+                    totalViews: file.settings?.total_views || accessRequests.length,
                     uniqueViewers: viewers.size,
+                    activeViewers: activeViewerCount,
                     chain: chainNodes
                 })
             }

@@ -13,8 +13,9 @@ export async function GET() {
         }
 
         // Get all active sessions for files owned by this user
+        // Priority: viewing_sessions table
         const { data: sessions, error } = await supabase
-            .from('sessions')
+            .from('viewing_sessions')
             .select(`
                 id,
                 file_id,
@@ -39,8 +40,11 @@ export async function GET() {
             return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 })
         }
 
+        // Filter out owner's own sessions if any
+        const filteredSessions = sessions?.filter(s => s.viewer_email?.toLowerCase() !== user.email?.toLowerCase())
+
         // Calculate viewing duration for each session
-        const sessionsWithDuration = (sessions || []).map(session => ({
+        const sessionsWithDuration = (filteredSessions || []).map(session => ({
             ...session,
             viewing_duration: Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000),
             location: session.ip_info?.city

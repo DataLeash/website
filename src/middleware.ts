@@ -39,7 +39,8 @@ export async function middleware(request: NextRequest) {
     // Protected routes
     const protectedPaths = ['/dashboard', '/api/files']
     const isProtectedPath = protectedPaths.some(path =>
-        request.nextUrl.pathname.startsWith(path)
+        request.nextUrl.pathname.startsWith(path) &&
+        !request.nextUrl.pathname.endsWith('/decrypt') // Allow decrypt to handle its own auth
     )
 
     // Auth pages (redirect if already logged in)

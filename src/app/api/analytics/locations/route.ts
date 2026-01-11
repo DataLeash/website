@@ -28,13 +28,12 @@ export async function GET() {
 
         const fileIds = userFiles.map(f => f.id)
 
-        // Get access logs with location data
-        // location JSONB has: city, country, countryCode, lat, lon
-        const { data: accessLogs } = await supabase
-            .from('access_logs')
+        // Get access_requests which have fingerprint with GPS geolocation
+        const { data: accessRequests } = await supabase
+            .from('access_requests')
             .select('*, files(original_name)')
             .in('file_id', fileIds)
-            .order('timestamp', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(500)
 
         // Get active sessions
@@ -44,7 +43,10 @@ export async function GET() {
             .in('file_id', fileIds)
             .eq('is_active', true)
 
-        // Group by location
+        // Create set of active viewer emails
+        const activeEmails = new Set(activeSessions?.map(s => s.viewer_email?.toLowerCase()) || [])
+
+        // Group by location - prefer fingerprint geolocation > ip_info > location JSONB
         const locationMap = new Map<string, {
             id: string
             lat: number
@@ -57,20 +59,45 @@ export async function GET() {
             viewerCount: number
             lastAccess: string
             files: Set<string>
+            mapsUrl: string
+            viewerEmail: string
+            viewerName: string
         }>()
 
-        for (const log of accessLogs || []) {
-            // location is stored in the `location` JSONB column
-            const loc = log.location || {}
-            const lat = loc.lat || 0
-            const lon = loc.lon || 0
-            const city = loc.city || 'Unknown'
-            const country = loc.country || 'Unknown'
+        for (const req of accessRequests || []) {
+            // Priority 1: Browser GPS from fingerprint
+            const fingerprint = req.fingerprint || {}
+            const geo = fingerprint.geolocation || {}
 
-            // Skip if no valid location
-            if (!lat && !lon && city === 'Unknown') continue
+            // Priority 2: IP-based info
+            const ipInfo = req.ip_info || {}
 
-            const key = `${lat.toFixed(1)}_${lon.toFixed(1)}`
+            // Get coordinates - prefer GPS over IP
+            let lat = geo.latitude || geo.lat || ipInfo.lat || 0
+            let lon = geo.longitude || geo.lon || ipInfo.lon || 0
+
+            // Get city/country from IP info (GPS doesn't provide this)
+            const city = ipInfo.city || 'Unknown'
+            const country = ipInfo.country || 'Unknown'
+            const countryCode = ipInfo.countryCode || 'XX'
+
+            // Get or build maps URL
+            const mapsUrl = geo.mapsUrl ||
+                (lat && lon ? `https://maps.google.com/maps?q=${lat},${lon}` : '')
+
+            // Skip if no valid coordinates
+            if (!lat && !lon) continue
+
+            // Use more precise key for GPS data (5 decimal places = ~1m precision)
+            const key = `${lat.toFixed(4)}_${lon.toFixed(4)}`
+
+            const viewerEmail = req.viewer_email?.toLowerCase()
+
+            // Filter out owner's own activity
+            if (viewerEmail === user.email?.toLowerCase()) continue
+
+            const isActive = activeEmails.has(viewerEmail)
+            const isBlocked = req.status === 'denied'
 
             if (!locationMap.has(key)) {
                 locationMap.set(key, {
@@ -79,38 +106,30 @@ export async function GET() {
                     lon,
                     city,
                     country,
-                    countryCode: loc.countryCode || 'XX',
-                    isActive: false,
-                    isBlocked: log.action === 'blocked',
+                    countryCode,
+                    isActive,
+                    isBlocked,
                     viewerCount: 0,
-                    lastAccess: log.timestamp,
-                    files: new Set()
+                    lastAccess: req.created_at,
+                    files: new Set(),
+                    mapsUrl,
+                    viewerEmail: viewerEmail || '',
+                    viewerName: req.viewer_name || ''
                 })
             }
 
             const location = locationMap.get(key)!
             location.viewerCount++
-            location.files.add(log.files?.original_name || log.file_id)
-            if (new Date(log.timestamp) > new Date(location.lastAccess)) {
-                location.lastAccess = log.timestamp
-            }
-            if (log.action === 'blocked') {
-                location.isBlocked = true
-            }
-        }
+            location.files.add(req.files?.original_name || req.file_id)
 
-        // Mark active locations
-        for (const session of activeSessions || []) {
-            // Try to match by viewer email in the session
-            for (const log of accessLogs || []) {
-                if (log.location?.viewer_email === session.viewer_email) {
-                    const loc = log.location
-                    const key = `${(loc.lat || 0).toFixed(1)}_${(loc.lon || 0).toFixed(1)}`
-                    if (locationMap.has(key)) {
-                        locationMap.get(key)!.isActive = true
-                    }
-                    break
-                }
+            if (new Date(req.created_at) > new Date(location.lastAccess)) {
+                location.lastAccess = req.created_at
+            }
+            if (isActive) {
+                location.isActive = true
+            }
+            if (isBlocked) {
+                location.isBlocked = true
             }
         }
 
@@ -122,7 +141,7 @@ export async function GET() {
 
         // Calculate stats
         const countries = new Set(locations.map(l => l.country))
-        const blockedCount = (accessLogs || []).filter(l => l.action === 'blocked').length
+        const blockedCount = locations.filter(l => l.isBlocked).length
 
         return NextResponse.json({
             locations,

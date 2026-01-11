@@ -32,7 +32,7 @@ export async function POST(
 
         // Revoke all active sessions for this file
         const { data: revokedSessions, error: revokeError } = await supabase
-            .from('sessions')
+            .from('viewing_sessions')
             .update({
                 is_active: false,
                 is_revoked: true,

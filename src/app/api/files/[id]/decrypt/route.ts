@@ -41,13 +41,78 @@ export async function GET(
         const supabase = getSupabaseClient()
         const { id: fileId } = await params
 
+        // === SECURITY: AUTHENTICATION CHECK ===
+        // 1. Get Token
+        const tokenHeader = request.headers.get('x-viewer-token')
+        const emailHeader = request.headers.get('x-viewer-email')
+
+        // 2. Validate Token (Base64 JSON from OTP)
+        let verifiedEmail = null
+        if (tokenHeader) {
+            try {
+                const tokenData = JSON.parse(Buffer.from(tokenHeader, 'base64').toString())
+
+                // Check expiration
+                if (tokenData.expires && tokenData.expires < Date.now()) {
+                    return NextResponse.json({ error: 'Access token expired' }, { status: 401 })
+                }
+
+                // Check file match
+                if (tokenData.fileId && tokenData.fileId !== fileId) {
+                    return NextResponse.json({ error: 'Invalid token for this file' }, { status: 403 })
+                }
+
+                verifiedEmail = tokenData.email
+            } catch (e) {
+                return NextResponse.json({ error: 'Invalid access token' }, { status: 401 })
+            }
+        }
+        // 3. Fallback: Check Active Session (if header missing but session cookie/param exists?)
+        // For now, strict token requirement is best.
+
+        // 4. Owner Override: If called by owner (via dashboard), they might have Supabase Auth cookie
+        // But this is usually called by View Page. Owner preview might use same flow.
+
+        if (!verifiedEmail) {
+            // Check if it's the owner via Supabase Cookie (optional, for "Preview")
+            // This is complex because we are bypassing middleware. 
+            // For now, assume STRICT VIEWING.
+            // If no token, check if we have a valid access request for the email header? No, unsafe.
+            return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+        }
+
+        // 5. Check Approval Status
+        // Even with a valid OTP token, we must ensure they are APPROVED by owner
+        // (unless file doesn't require approval, but let's be safe)
+        const { data: fileSettings } = await supabase
+            .from('files')
+            .select('settings, owner_id')
+            .eq('id', fileId)
+            .single()
+
+        // If approval required, check access_requests
+        if (fileSettings?.settings?.require_approval) {
+            const { data: accessRequest } = await supabase
+                .from('access_requests')
+                .select('status')
+                .eq('file_id', fileId)
+                .eq('viewer_email', verifiedEmail.toLowerCase())
+                .eq('status', 'approved')
+                .single()
+
+            if (!accessRequest) {
+                return NextResponse.json({ error: 'Access has not been approved by owner' }, { status: 403 })
+            }
+        }
+
+
+        // === END SECURITY CHECK ===
+
         // Get client IP
         const forwardedFor = request.headers.get('x-forwarded-for')
         const realIp = request.headers.get('x-real-ip')
         const clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || '::1'
         const userAgent = request.headers.get('user-agent') || ''
-
-        console.log('Decrypting file:', fileId, 'IP:', clientIp)
 
         // Get file record
         const { data: file, error: fileError } = await supabase
@@ -55,8 +120,6 @@ export async function GET(
             .select('*')
             .eq('id', fileId)
             .single()
-
-        console.log('File query result:', { file: file?.id, error: fileError?.message })
 
         if (fileError || !file) {
             return NextResponse.json({ error: 'File not found' }, { status: 404 })
@@ -79,8 +142,6 @@ export async function GET(
             .eq('is_destroyed', false)
             .order('shard_index')
 
-        console.log('Shards query result:', { count: shards?.length, error: shardsError?.message })
-
         if (shardsError || !shards || shards.length < 4) {
             return NextResponse.json({ error: 'Decryption keys unavailable' }, { status: 403 })
         }
@@ -98,7 +159,6 @@ export async function GET(
         const encryptionKey = reconstructKey(shards)
 
         // Download encrypted file from storage
-        console.log('Downloading from storage:', file.storage_path)
         const { data: encryptedData, error: downloadError } = await supabase.storage
             .from('protected-files')
             .download(file.storage_path)
@@ -157,8 +217,6 @@ export async function GET(
                 }
             })
             .eq('id', fileId)
-
-        console.log('View logged successfully for file:', fileId)
 
         // Return decrypted file
         return new NextResponse(decrypted, {

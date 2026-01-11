@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
         // Get session info first
         const { data: session, error: fetchError } = await supabase
-            .from('sessions')
+            .from('viewing_sessions')
             .select('id, viewer_email, file_id, is_active')
             .eq('id', session_id)
             .single()
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
         // Revoke the specific session
         const { error: updateError } = await supabase
-            .from('sessions')
+            .from('viewing_sessions')
             .update({
                 is_active: false,
                 is_revoked: true,

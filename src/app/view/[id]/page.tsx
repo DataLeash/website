@@ -42,6 +42,7 @@ export default function ViewFilePage() {
 
     // OTP state
     const [sessionId, setSessionId] = useState('');
+    const [accessToken, setAccessToken] = useState('');
     const [otpCode, setOtpCode] = useState('');
     const [otpSending, setOtpSending] = useState(false);
     const [otpVerifying, setOtpVerifying] = useState(false);
@@ -156,6 +157,11 @@ export default function ViewFilePage() {
                 throw new Error(data.error || 'Invalid verification code');
             }
 
+            // Store access token
+            if (data.accessToken) {
+                setAccessToken(data.accessToken);
+            }
+
             // After email verification, check if NDA is required
             if (file?.settings?.require_nda) {
                 setStep('nda');
@@ -237,7 +243,27 @@ export default function ViewFilePage() {
     const loadFileContent = async () => {
         setLoadingContent(true);
         try {
-            const response = await fetch(`/api/files/${fileId}/decrypt`);
+            // Create viewing session first
+            try {
+                await fetch('/api/session/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileId,
+                        viewerEmail,
+                        viewerName
+                    })
+                });
+            } catch (e) {
+                console.log('Session creation failed:', e);
+            }
+
+            const response = await fetch(`/api/files/${fileId}/decrypt`, {
+                headers: {
+                    'x-viewer-token': accessToken,
+                    'x-viewer-email': viewerEmail
+                }
+            });
 
             if (!response.ok) {
                 const error = await response.json();
@@ -246,10 +272,34 @@ export default function ViewFilePage() {
 
             const blob = await response.blob();
             setFileContent(URL.createObjectURL(blob));
+
+            // Start heartbeat to keep session active
+            startHeartbeat();
         } catch (err: any) {
             setError(err.message || 'Failed to decrypt file');
         }
         setLoadingContent(false);
+    };
+
+    // Heartbeat to keep viewing session active
+    const startHeartbeat = () => {
+        const heartbeat = setInterval(async () => {
+            try {
+                await fetch('/api/session/heartbeat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileId,
+                        viewerEmail
+                    })
+                });
+            } catch (e) {
+                console.log('Heartbeat failed:', e);
+            }
+        }, 30000); // Every 30 seconds
+
+        // Cleanup on unmount
+        return () => clearInterval(heartbeat);
     };
 
     const formatSize = (bytes: number) => {

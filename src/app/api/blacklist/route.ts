@@ -30,6 +30,74 @@ export async function GET() {
     }
 }
 
+// POST /api/blacklist - Add to blacklist
+export async function POST(request: NextRequest) {
+    try {
+        const supabase = await createClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const body = await request.json()
+        const {
+            blocked_email,
+            blocked_name,
+            reason,
+            fingerprint,
+            ip_address,
+            ip_info,
+            notes
+        } = body
+
+        if (!blocked_email) {
+            return NextResponse.json({ error: 'Missing blocked_email' }, { status: 400 })
+        }
+
+        // Check if already blacklisted
+        const { data: existing } = await supabase
+            .from('blacklist')
+            .select('id')
+            .eq('owner_id', user.id)
+            .eq('blocked_email', blocked_email)
+            .single()
+
+        if (existing) {
+            return NextResponse.json({ error: 'User is already blacklisted' }, { status: 409 })
+        }
+
+        const { data, error } = await supabase
+            .from('blacklist')
+            .insert({
+                owner_id: user.id,
+                blocked_email,
+                blocked_name,
+                reason,
+                fingerprint,
+                ip_address,
+                ip_info,
+                notes
+            })
+            .select()
+            .single()
+
+        if (error) {
+            console.error('Blacklist add error:', error)
+            return NextResponse.json({ error: 'Failed to add to blacklist' }, { status: 500 })
+        }
+
+        return NextResponse.json({
+            message: 'Added to blacklist',
+            entry: data
+        })
+
+    } catch (error) {
+        console.error('Blacklist add error:', error)
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+}
+
 // DELETE /api/blacklist - Remove from blacklist
 export async function DELETE(request: NextRequest) {
     try {

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
         // Get session to calculate duration
         const { data: session } = await supabase
-            .from('sessions')
+            .from('viewing_sessions')
             .select('started_at, file_id, viewer_email')
             .eq('id', session_id)
             .single()
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
         // Update session
         await supabase
-            .from('sessions')
+            .from('viewing_sessions')
             .update({
                 is_active: false,
                 ended_at: new Date().toISOString(),
