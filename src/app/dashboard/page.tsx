@@ -55,7 +55,7 @@ export default function DashboardPage() {
             <Sidebar />
 
             {/* Main Content */}
-            <main className="ml-72 p-8">
+            <main className="md:ml-72 ml-0 p-4 md:p-8">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
@@ -68,7 +68,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {[
                         { label: "Total Files", value: statsLoading ? "..." : stats.totalFiles.toString(), icon: FolderLock, change: "Your protected files", color: "from-cyan-500 to-blue-600" },
                         { label: "Total Views", value: statsLoading ? "..." : stats.totalViews.toLocaleString(), icon: Eye, change: "Across all files", color: "from-emerald-500 to-green-600" },
@@ -89,7 +89,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Two Column Layout */}
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Recent Files */}
                     <div className="glass-card p-6">
                         <div className="flex justify-between items-center mb-4">
@@ -193,10 +193,9 @@ export default function DashboardPage() {
                     <ActiveViewers />
                 </div>
 
-                {/* Quick Actions */}
                 <div className="mt-8 glass-card p-6">
                     <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[
                             { icon: Upload, label: "Upload File", href: "/dashboard/upload", color: "from-cyan-500 to-blue-600" },
                             { icon: Link2, label: "Share Link", href: "/dashboard/share", color: "from-purple-500 to-violet-600" },

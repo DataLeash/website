@@ -67,8 +67,12 @@ export function useAuth() {
     }
 
     const signOut = async () => {
-        await fetch('/api/auth/logout', { method: 'POST' })
-        setUser(null)
+        setUser(null) // Optimistic update for instant feedback
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' })
+        } catch (error) {
+            console.error('Logout error:', error)
+        }
     }
 
     return { user, loading, signUp, signIn, signOut }

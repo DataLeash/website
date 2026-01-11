@@ -87,7 +87,8 @@ export function Globe3D({ locations, onLocationClick }: Globe3DProps) {
         const textureLoader = new THREE.TextureLoader()
 
         // Create Earth sphere with realistic NASA texture
-        const geometry = new THREE.SphereGeometry(1, 128, 128)
+        // Reduced segments for mobile performance
+        const geometry = new THREE.SphereGeometry(1, 64, 64)
 
         // Load textures
         textureLoader.load(
@@ -136,7 +137,7 @@ export function Globe3D({ locations, onLocationClick }: Globe3DProps) {
         )
 
         // Atmosphere glow (outer)
-        const atmosphereGeometry = new THREE.SphereGeometry(1.15, 64, 64)
+        const atmosphereGeometry = new THREE.SphereGeometry(1.15, 32, 32)
         const atmosphereMaterial = new THREE.ShaderMaterial({
             vertexShader: `
                 varying vec3 vNormal;
@@ -162,7 +163,7 @@ export function Globe3D({ locations, onLocationClick }: Globe3DProps) {
         scene.add(atmosphere)
 
         // Inner atmosphere glow 
-        const innerAtmosphereGeometry = new THREE.SphereGeometry(1.02, 64, 64)
+        const innerAtmosphereGeometry = new THREE.SphereGeometry(1.02, 32, 32)
         const innerAtmosphereMaterial = new THREE.ShaderMaterial({
             vertexShader: `
                 varying vec3 vNormal;

@@ -21,7 +21,8 @@ interface FileData {
         require_approval?: boolean;
     };
     owner?: {
-        full_name: string;
+        id: string;
+        display_name: string;
     };
 }
 
@@ -350,7 +351,7 @@ export default function ViewFilePage() {
                         <div className="text-4xl mb-2">📄</div>
                         <h1 className="text-xl font-bold">{file?.original_name}</h1>
                         <p className="text-sm text-[var(--foreground-muted)]">
-                            Shared by {file?.owner?.full_name || 'Unknown'} • {formatSize(file?.file_size || 0)}
+                            Shared by {file?.owner?.display_name || file?.owner?.id || 'Anonymous'} • {formatSize(file?.file_size || 0)}
                         </p>
                     </div>
 

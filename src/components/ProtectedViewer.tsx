@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { SecurityToast } from './SecurityToast'
+import { activateAdvancedProtections, type ProtectionConfig } from '@/lib/viewer-protection'
 
 interface ProtectedViewerProps {
     fileUrl: string
@@ -29,7 +31,12 @@ export default function ProtectedViewer({
     const [sessionId, setSessionId] = useState<string | null>(initialSessionId || null)
     const [sessionError, setSessionError] = useState<string | null>(null)
     const [isOnline, setIsOnline] = useState(true)
+    const [toast, setToast] = useState<{ message: string, type: 'warning' | 'error' } | null>(null)
     const heartbeatRef = useRef<NodeJS.Timeout | null>(null)
+
+    const showSecurityAlert = useCallback((message: string) => {
+        setToast({ message, type: 'error' })
+    }, [])
 
     useEffect(() => {
         // Generate watermark with viewer info and timestamp
@@ -39,7 +46,7 @@ export default function ProtectedViewer({
         // Prevent right-click
         const handleContextMenu = (e: MouseEvent) => {
             e.preventDefault()
-            alert('🚫 Right-click is disabled for security reasons.')
+            showSecurityAlert('Right-click is disabled for security reasons.')
             return false
         }
 
@@ -51,14 +58,14 @@ export default function ProtectedViewer({
                 ['s', 'c', 'x', 'p', 'a', 'u'].includes(e.key.toLowerCase())
             ) {
                 e.preventDefault()
-                alert('🚫 This action is disabled for security reasons.')
+                showSecurityAlert('This shortcut is disabled for security.')
                 return false
             }
             // Block Print Screen
             if (e.key === 'PrintScreen') {
                 e.preventDefault()
                 navigator.clipboard.writeText('')
-                alert('🚫 Screenshots are not allowed.')
+                showSecurityAlert('Screenshots are blocked by DataLeash.')
                 return false
             }
             // Block F12 (Developer tools)
@@ -84,6 +91,9 @@ export default function ProtectedViewer({
 
         // Detect DevTools opening
         const detectDevTools = () => {
+            // Skip on mobile/touch devices where window dimensions are unreliable
+            if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return
+
             const threshold = 160
             const widthThreshold = window.outerWidth - window.innerWidth > threshold
             const heightThreshold = window.outerHeight - window.innerHeight > threshold
@@ -98,7 +108,7 @@ export default function ProtectedViewer({
         // Prevent copy
         const handleCopy = (e: ClipboardEvent) => {
             e.preventDefault()
-            alert('🚫 Copying is disabled for security reasons.')
+            showSecurityAlert('Copying content is disabled.')
         }
 
         // Prevent selection
@@ -128,7 +138,7 @@ export default function ProtectedViewer({
             document.removeEventListener('selectstart', handleSelectStart)
             clearInterval(devToolsInterval)
         }
-    }, [viewerEmail])
+    }, [viewerEmail, showSecurityAlert])
 
     // Session heartbeat - continuous authorization per DataLeash spec
     useEffect(() => {
@@ -150,6 +160,20 @@ export default function ProtectedViewer({
                     const data = await res.json()
                     if (data.session_id) {
                         setSessionId(data.session_id)
+
+                        // Activate advanced security protections
+                        activateAdvancedProtections({
+                            sessionId: data.session_id,
+                            fileId,
+                            onRevoked: () => {
+                                setSessionError('Access has been revoked')
+                                setIsBlurred(true)
+                            },
+                            onTampered: () => {
+                                setSessionError('Security violation detected')
+                                setIsBlurred(true)
+                            }
+                        })
                     }
                 } catch (err) {
                     console.error('Failed to create session:', err)
@@ -225,7 +249,11 @@ export default function ProtectedViewer({
 
             // End session on unmount
             if (sessionId) {
-                navigator.sendBeacon('/api/session/end', JSON.stringify({ session_id: sessionId }))
+                try {
+                    navigator.sendBeacon('/api/session/end', JSON.stringify({ session_id: sessionId }))
+                } catch (e) {
+                    // Ignore errors during unload
+                }
             }
 
             // Clear file URL on unmount for security
@@ -240,6 +268,7 @@ export default function ProtectedViewer({
         if (mimeType.startsWith('image/')) {
             return (
                 <div className="relative select-none">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={fileUrl}
                         alt={fileName}
@@ -257,20 +286,28 @@ export default function ProtectedViewer({
         }
 
         if (mimeType === 'application/pdf') {
-            // For PDFs, show a secure viewer message
+            // Render PDF in protected embed with overlay to prevent downloads
             return (
-                <div className="text-center py-12">
-                    <div className="text-6xl mb-4">📄</div>
-                    <h2 className="text-xl font-bold mb-2">{fileName}</h2>
-                    <p className="text-[var(--foreground-muted)] mb-6">
-                        PDF files can only be viewed in the Data Leash desktop app for security.
-                    </p>
-                    <a
-                        href="#"
-                        className="glow-button px-6 py-3 rounded-lg font-semibold text-black inline-block"
-                    >
-                        Download Data Leash App
-                    </a>
+                <div className="relative w-full h-[70vh] select-none">
+                    {/* PDF Embed */}
+                    <embed
+                        src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+                        type="application/pdf"
+                        className="w-full h-full rounded-lg"
+                        style={{
+                            pointerEvents: 'auto', // Allow scrolling
+                        }}
+                    />
+                    {/* Invisible overlay to prevent right-click on PDF */}
+                    <div
+                        className="absolute inset-0 z-10"
+                        style={{ pointerEvents: 'none' }}
+                        onContextMenu={(e) => e.preventDefault()}
+                    />
+                    {/* Security notice */}
+                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/80 text-center text-xs text-[var(--foreground-muted)]">
+                        🔒 Protected Document • {viewerEmail} • Downloads Disabled
+                    </div>
                 </div>
             )
         }
@@ -308,6 +345,15 @@ export default function ProtectedViewer({
                 WebkitTouchCallout: 'none',
             }}
         >
+            {/* Security Toasts */}
+            {toast && (
+                <SecurityToast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
+
             {/* Invisible overlay to prevent interactions */}
             <div
                 className="absolute inset-0 z-10"

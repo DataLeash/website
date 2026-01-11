@@ -7,8 +7,9 @@ import { useNotifications, useAuth } from "@/lib/hooks";
 import {
     LayoutDashboard, FolderLock, Upload, KeyRound, Activity,
     Users, Bell, BarChart3, Ban, Eye, FileText, Settings,
-    Github, LogOut, Globe, Link2
+    Github, LogOut, Globe, Link2, Menu, X
 } from "lucide-react";
+import { useState } from "react";
 
 interface SidebarProps {
     showLogout?: boolean;
@@ -18,6 +19,7 @@ export function Sidebar({ showLogout = true }: SidebarProps) {
     const pathname = usePathname();
     const { unreadCount } = useNotifications();
     const { signOut } = useAuth();
+    const [isOpen, setIsOpen] = useState(false);
 
     const navItems = [
         { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", color: "from-cyan-500 to-blue-600" },
@@ -44,66 +46,76 @@ export function Sidebar({ showLogout = true }: SidebarProps) {
     };
 
     return (
-        <aside className="fixed left-0 top-0 bottom-0 w-64 glass-card m-4 p-6 flex flex-col z-40">
-            <Link href="/dashboard" className="mb-8">
-                <DataLeashLogoCompact size={36} />
-            </Link>
+        <>
+            {/* Mobile Toggle */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="md:hidden fixed top-4 left-4 z-[60] p-2 glass-card rounded-lg text-white hover:bg-white/10 transition"
+            >
+                {isOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
 
-            <nav className="flex-1 space-y-1 overflow-y-auto">
-                {navItems.map((item, i) => (
-                    <Link
-                        key={i}
-                        href={item.href}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition group ${isActive(item.href)
-                            ? "bg-[var(--primary)] text-black font-semibold"
-                            : "hover:bg-[rgba(0,212,255,0.1)]"
-                            }`}
-                    >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isActive(item.href)
-                            ? "bg-black/20"
-                            : `bg-gradient-to-br ${item.color} shadow-lg`
-                            } group-hover:scale-110 transition-transform`}>
-                            <item.icon className={`w-4 h-4 ${isActive(item.href) ? 'text-black' : 'text-white'}`} />
-                        </div>
-                        <span className="text-sm">{item.label}</span>
-                        {item.badge && (
-                            <span className="ml-auto bg-[var(--error)] text-white text-xs px-2 py-0.5 rounded-full">
-                                {item.badge}
-                            </span>
-                        )}
-                    </Link>
-                ))}
-            </nav>
-
-            {/* GitHub Link */}
-            <div className="pt-4 border-t border-[rgba(0,212,255,0.2)]">
-                <a
-                    href="https://github.com/soul-less-king"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-3 py-2.5 text-[var(--foreground-muted)] hover:text-white transition w-full rounded-lg hover:bg-[rgba(0,212,255,0.1)] group"
-                >
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                        <Github className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-sm">GitHub</span>
-                </a>
-            </div>
-
-            {showLogout && (
-                <div className="border-t border-[rgba(0,212,255,0.2)]">
-                    <button
-                        onClick={() => signOut()}
-                        className="flex items-center gap-3 px-3 py-2.5 text-[var(--foreground-muted)] hover:text-white transition w-full rounded-lg hover:bg-[rgba(255,100,100,0.1)] group"
-                    >
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                            <LogOut className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-sm">Logout</span>
-                    </button>
-                </div>
+            {/* Mobile Overlay */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] md:hidden"
+                    onClick={() => setIsOpen(false)}
+                />
             )}
-        </aside>
+
+            <aside className={`
+                fixed left-0 top-0 bottom-0 w-64 glass-card m-4 p-6 flex flex-col z-50
+                transition-transform duration-300 ease-in-out
+                md:translate-x-0
+                ${isOpen ? 'translate-x-0' : '-translate-x-[120%]'}
+            `}>
+                <Link href="/dashboard" className="mb-8" onClick={() => setIsOpen(false)}>
+                    <DataLeashLogoCompact size={36} />
+                </Link>
+
+                <nav className="flex-1 space-y-1 overflow-y-auto">
+                    {navItems.map((item, i) => (
+                        <Link
+                            key={i}
+                            href={item.href}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition group ${isActive(item.href)
+                                ? "bg-[var(--primary)] text-black font-semibold"
+                                : "hover:bg-[rgba(0,212,255,0.1)]"
+                                }`}
+                        >
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isActive(item.href)
+                                ? "bg-black/20"
+                                : `bg-gradient-to-br ${item.color} shadow-lg`
+                                } group-hover:scale-110 transition-transform`}>
+                                <item.icon className={`w-4 h-4 ${isActive(item.href) ? 'text-black' : 'text-white'}`} />
+                            </div>
+                            <span className="text-sm">{item.label}</span>
+                            {item.badge && (
+                                <span className="ml-auto bg-[var(--error)] text-white text-xs px-2 py-0.5 rounded-full">
+                                    {item.badge}
+                                </span>
+                            )}
+                        </Link>
+                    ))}
+                </nav>
+
+
+
+                {showLogout && (
+                    <div className="border-t border-[rgba(0,212,255,0.2)]">
+                        <button
+                            onClick={() => signOut()}
+                            className="flex items-center gap-3 px-3 py-2.5 text-[var(--foreground-muted)] hover:text-white transition w-full rounded-lg hover:bg-[rgba(255,100,100,0.1)] group"
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                                <LogOut className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-sm">Logout</span>
+                        </button>
+                    </div>
+                )}
+            </aside>
+        </>
     );
 }
 

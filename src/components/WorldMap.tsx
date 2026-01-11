@@ -10,9 +10,10 @@ import {
     Activity, Eye, Sun, Moon, Satellite
 } from 'lucide-react'
 
-// Extended Leaflet types for Heatmap
+// Extended Leaflet types for Heatmap and MarkerCluster
 declare module 'leaflet' {
     export function heatLayer(latlngs: any[], options?: any): any;
+    export function markerClusterGroup(options?: any): any;
 }
 
 interface MapLocation {
@@ -36,9 +37,11 @@ interface WorldMapProps {
     locations: MapLocation[]
     ownerLocation?: { lat: number; lon: number; city: string } | null
     onLocationClick?: (location: MapLocation) => void
+    blockedCountries?: string[]
+    onToggleCountry?: (countryCode: string) => void
 }
 
-type MapMode = 'standard' | 'heatmap' | 'threat'
+type MapMode = 'standard' | 'heatmap' | 'threat' | 'geofence'
 type MapTheme = 'dark' | 'light' | 'satellite' | 'slate'
 
 const THEMES = {
@@ -64,17 +67,20 @@ const THEMES = {
     }
 }
 
-export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMapProps) {
+export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCountries = [], onToggleCountry }: WorldMapProps) {
     const mapRef = useRef<HTMLDivElement>(null)
     const leafletMapRef = useRef<L.Map | null>(null)
     const markersRef = useRef<L.LayerGroup | null>(null)
     const heatLayerRef = useRef<L.Layer | null>(null)
     const flightLinesRef = useRef<L.LayerGroup | null>(null)
     const tileLayerRef = useRef<L.TileLayer | null>(null)
+    const geoJsonLayerRef = useRef<L.GeoJSON | null>(null)
 
     // UI State
     const [mode, setMode] = useState<MapMode>('standard')
     const [theme, setTheme] = useState<MapTheme>('satellite') // Default to Satellite for "Wow"
+    const [geoJsonData, setGeoJsonData] = useState<any>(null)
+    const [countryMapping, setCountryMapping] = useState<Record<string, string>>({})
     const [showFlights, setShowFlights] = useState(true)
     const [isReplaying, setIsReplaying] = useState(false)
     const [replayProgress, setReplayProgress] = useState(100)
@@ -84,33 +90,43 @@ export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMap
 
     // Initialize Map
     useEffect(() => {
+        console.log('WorldMap: MountingComponent')
         if (!mapRef.current || leafletMapRef.current) return
 
+        console.log('WorldMap: Initializing Leaflet')
         const map = L.map(mapRef.current, {
-            center: [25, 0],
-            zoom: 2.5,
+            center: [20, 0],
+            zoom: 2,
             minZoom: 2,
-            maxZoom: 18,
+            maxZoom: 10,
             zoomControl: false,
-            attributionControl: false,
-            worldCopyJump: true
+            attributionControl: false
         })
-
-        // Initial Tile Layer
-        tileLayerRef.current = L.tileLayer(THEMES[theme].url, {
-            subdomains: 'abcd',
-            maxZoom: 19,
-            opacity: 1
-        }).addTo(map)
-
-        // Layers
-        markersRef.current = L.layerGroup().addTo(map)
-        flightLinesRef.current = L.layerGroup().addTo(map)
 
         leafletMapRef.current = map
 
+        // Initial Tile Layer
+        // Use current theme or default
+        const currentTheme = THEMES[theme] || THEMES.satellite
+        const tileLayer = L.tileLayer(currentTheme.url, {
+            noWrap: true
+        }).addTo(map)
+
+        tileLayerRef.current = tileLayer
+
+        // Layer Groups
+        markersRef.current = L.layerGroup().addTo(map)
+        flightLinesRef.current = L.layerGroup().addTo(map)
+
+        // Handle resize
+        const resizeObserver = new ResizeObserver(() => {
+            map.invalidateSize()
+        })
+        resizeObserver.observe(mapRef.current)
+
         return () => {
             map.remove()
+            resizeObserver.disconnect()
             leafletMapRef.current = null
         }
     }, [])
@@ -118,9 +134,30 @@ export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMap
     // Update Theme
     useEffect(() => {
         if (!leafletMapRef.current || !tileLayerRef.current) return
-
         tileLayerRef.current.setUrl(THEMES[theme].url)
     }, [theme])
+
+    // Fetch GeoJSON & Codes
+    useEffect(() => {
+        fetch('/world.json')
+            .then(res => res.json())
+            .then(data => setGeoJsonData(data))
+            .catch(err => console.error('Failed to load GeoJSON:', err))
+
+        fetch('/country-codes.json')
+            .then(res => res.json())
+            .then(data => {
+                const map: Record<string, string> = {}
+                if (Array.isArray(data)) {
+                    data.forEach((c: any) => {
+                        if (c['alpha-3'] && c['alpha-2']) map[c['alpha-3']] = c['alpha-2']
+                    })
+                    setCountryMapping(map)
+                }
+            })
+            .catch(err => console.error('Failed to load codes:', err))
+
+    }, [])
 
     // Calculate locations based on Time/Replay
     useEffect(() => {
@@ -167,25 +204,77 @@ export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMap
             const heatPoints = displayLocations.map(l => [
                 l.lat,
                 l.lon,
-                l.isActive ? 1.0 : l.isBlocked ? 0.3 : Math.min(l.viewerCount * 0.2, 0.8)
+                l.isActive ? 1.0 : l.isBlocked ? 0.8 : Math.min(l.viewerCount * 0.3, 0.7)
             ])
 
             // @ts-ignore
             heatLayerRef.current = L.heatLayer(heatPoints, {
-                radius: 25,
-                blur: 15,
+                radius: 35,
+                blur: 20,
                 maxZoom: 10,
+                minOpacity: 0.4,
                 gradient: {
-                    0.2: '#2c3e50',
-                    0.4: '#00afb9',
-                    0.6: '#0081a7',
-                    0.8: '#e63946',
-                    1.0: '#fdfcdc'
+                    0.0: '#1e3a5f',    // dark blue
+                    0.2: '#2563eb',    // blue
+                    0.4: '#06b6d4',    // cyan
+                    0.6: '#22c55e',    // green
+                    0.8: '#f59e0b',    // amber/orange
+                    1.0: '#ef4444'     // red (hottest = active)
                 }
             }).addTo(map)
         }
 
-        // 4. Render Pins
+        // 4. Render GeoJSON (Geofence Mode)
+        if (mode === 'geofence' && geoJsonData) {
+            if (geoJsonLayerRef.current) geoJsonLayerRef.current.remove()
+
+            geoJsonLayerRef.current = L.geoJSON(geoJsonData, {
+                style: (feature: any) => {
+                    // Use mapping to normalize ISO3 (Map) to ISO2 (Backend/DB)
+                    const iso3 = String(feature.id)
+                    const iso2 = countryMapping[iso3] || iso3
+                    const isBlocked = blockedCountries.includes(iso2);
+
+                    return {
+                        fillColor: isBlocked ? '#ef4444' : '#22c55e',
+                        weight: 1,
+                        opacity: 1,
+                        color: 'rgba(255,255,255,0.2)',
+                        dashArray: '3',
+                        fillOpacity: isBlocked ? 0.6 : 0.1
+                    }
+                },
+                onEachFeature: (feature, layer) => {
+                    layer.on({
+                        click: () => {
+                            const iso3 = String(feature.id)
+                            const iso2 = countryMapping[iso3] || iso3
+                            if (onToggleCountry && iso2) onToggleCountry(String(iso2))
+                        },
+                        mouseover: (e) => {
+                            const layer = e.target;
+                            layer.setStyle({
+                                weight: 2,
+                                color: '#666',
+                                dashArray: '',
+                                fillOpacity: 0.7
+                            });
+                        },
+                        mouseout: (e) => {
+                            if (geoJsonLayerRef.current) {
+                                geoJsonLayerRef.current.resetStyle(e.target);
+                            }
+                        }
+                    });
+                    const iso3 = String(feature.id)
+                    layer.bindTooltip(`${feature.properties.name} (${countryMapping[iso3] || iso3})`);
+                }
+            }).addTo(map)
+        } else {
+            if (geoJsonLayerRef.current) geoJsonLayerRef.current.remove()
+        }
+
+        // 5. Render Pins
         if (mode !== 'heatmap') {
             displayLocations.forEach(loc => {
                 if (mode === 'threat' && !loc.isBlocked && !loc.isActive) return
@@ -262,7 +351,7 @@ export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMap
             })
         }
 
-    }, [locations, ownerLocation, mode, theme, showFlights, displayLocations])
+    }, [locations, ownerLocation, mode, theme, showFlights, displayLocations, blockedCountries, geoJsonData, countryMapping])
 
     const toggleReplay = () => {
         if (isReplaying) {
@@ -283,7 +372,7 @@ export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMap
     const ThemeIcon = THEMES[theme].icon
 
     return (
-        <div className="relative w-full h-full bg-[#0a1628] rounded-xl overflow-hidden group">
+        <div className="relative w-full h-full min-h-[500px] bg-[#0a1628] rounded-xl overflow-hidden group">
             {/* The Map */}
             <div ref={mapRef} className="w-full h-full z-0" />
 
@@ -330,6 +419,17 @@ export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMap
                         title={`Theme: ${THEMES[theme].name}`}
                     >
                         <ThemeIcon size={18} />
+                    </button>
+
+                    <button
+                        onClick={() => setMode('geofence')}
+                        className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition ${mode === 'geofence'
+                            ? 'bg-[var(--primary)] text-black shadow-[0_0_15px_rgba(0,212,255,0.4)]'
+                            : 'bg-black/40 text-gray-400 hover:text-white hover:bg-white/10'
+                            }`}
+                    >
+                        <Globe className="w-3 h-3" />
+                        GEOFENCE
                     </button>
                 </div>
             </div>
@@ -531,6 +631,32 @@ export function WorldMap({ locations, ownerLocation, onLocationClick }: WorldMap
 
                 .leaflet-control-zoom { display: none; }
                 .leaflet-container { font-family: inherit; }
+                
+                /* Custom Cluster Styles */
+                .marker-cluster-custom {
+                    background: transparent !important;
+                }
+                .cluster-icon {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 14px;
+                    border: 3px solid rgba(255,255,255,0.8);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                    transition: transform 0.2s;
+                }
+                .cluster-icon:hover {
+                    transform: scale(1.1);
+                }
+                .leaflet-marker-icon.marker-cluster-custom {
+                    background: transparent !important;
+                    border: none !important;
+                }
             `}</style>
         </div>
     )

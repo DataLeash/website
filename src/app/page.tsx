@@ -50,8 +50,8 @@ const features = [
   },
   {
     icon: Skull,
-    title: "Chain Kill",
-    description: "One button destroys ALL copies everywhere. Even if your file was shared to 1 million people, Chain Kill revokes every single copy instantly and permanently.",
+    title: "Instant Revocation",
+    description: "One button destroys the decryption keys. Future access attempts are instantly denied. Anyone currently viewing will lose access on their next session.",
     gradient: "from-red-500 to-rose-600"
   },
   {
@@ -62,14 +62,14 @@ const features = [
   },
   {
     icon: Cpu,
-    title: "Memory-Only Execution",
-    description: "Files decrypt exclusively in RAM using Intel SGX enclaves. They NEVER touch the disk. When you close the viewer, data is overwritten and destroyed.",
+    title: "Streaming Decryption",
+    description: "Files are decrypted on-the-fly in the browser and never saved to disk. When you close the viewer, the decrypted content is released from memory.",
     gradient: "from-emerald-500 to-green-600"
   },
   {
     icon: Camera,
-    title: "Anti-Screenshot",
-    description: "Kernel-level capture prevention blocks ALL screenshot and recording tools. Screen share? Blocked. Recording software? Detected and refused. Nothing escapes.",
+    title: "Capture Prevention",
+    description: "Browser-level protections block common screenshot shortcuts and disable copy/paste. Watermarks identify viewers. Detected capture attempts are logged and alerted.",
     gradient: "from-orange-500 to-amber-600"
   },
   {
@@ -91,14 +91,14 @@ const stats = [
 // Professional quotes
 const quotes = [
   {
-    text: "Data is a fish—it cannot survive outside its container.",
-    author: "DataLeash Core Philosophy",
-    role: "Founding Principle"
+    text: "Information shouldn't be immortal. It should exist only as long as you permit.",
+    author: "Ephemeral Security",
+    role: "Core Philosophy"
   },
   {
-    text: "The only way to truly protect data is to maintain control of it, even after it leaves your hands.",
-    author: "Zero-Trust Architecture",
-    role: "Security Paradigm"
+    text: "The only way to keep a secret is to ensure it can vanish without a trace.",
+    author: "Data Sovereignty",
+    role: "Zero-Trust Architecture"
   }
 ];
 
@@ -180,7 +180,7 @@ export default function Home() {
           {/* Philosophy Quote */}
           <div className="mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card text-sm text-[var(--foreground-muted)] border border-white/10">
             <Quote className="w-4 h-4 text-[var(--primary)]" />
-            <span className="italic">"Data is a fish—it cannot survive outside its container."</span>
+            <span className="italic">"Data usually never dies. We gave it a kill switch."</span>
           </div>
 
           {/* Main Headline */}

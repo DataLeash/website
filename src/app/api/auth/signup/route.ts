@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
     try {
@@ -45,23 +46,42 @@ export async function POST(request: NextRequest) {
 
         // Create profile in users table
         if (authData.user) {
+            // Generate anonymous ID
+            const hash = crypto.createHash('sha256').update(authData.user.id + 'dataleash_salt').digest('hex')
+            const anonymousId = `DL-${hash.substring(0, 6).toUpperCase()}`
+
+            const baseProfile = {
+                id: authData.user.id,
+                email,
+                phone,
+                full_name,
+                qid,
+                phone_verified: false,
+                email_verified: false,
+                qid_verified: false,
+                is_active: true,
+                trust_score: 0,
+            }
+
+            // Try inserting WITH anonymous_id first
             const { error: profileError } = await supabase
                 .from('users')
                 .insert({
-                    id: authData.user.id,
-                    email,
-                    phone,
-                    full_name,
-                    qid,
-                    phone_verified: false,
-                    email_verified: false,
-                    qid_verified: false,
-                    is_active: true,
-                    trust_score: 0,
+                    ...baseProfile,
+                    anonymous_id: anonymousId,
                 })
 
             if (profileError) {
-                console.error('Profile creation error:', profileError)
+                console.warn('Profile creation with anonymous_id failed, retrying without it:', profileError.message)
+
+                // Retry WITHOUT anonymous_id (in case migration hasn't run yet)
+                const { error: retryError } = await supabase
+                    .from('users')
+                    .insert(baseProfile)
+
+                if (retryError) {
+                    console.error('Profile creation retry failed:', retryError)
+                }
             }
         }
 

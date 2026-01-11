@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
                 // Check if file is still valid
                 const { data: file } = await supabase
                     .from('files')
-                    .select('is_destroyed, settings')
+                    .select('is_destroyed, settings, owner_id')
                     .eq('id', fileId)
                     .single()
 
@@ -51,6 +51,23 @@ export async function POST(request: NextRequest) {
                         valid: false,
                         reason: 'File link has expired'
                     })
+                }
+
+                // Country Check (Instant Revocation)
+                const country = request.headers.get('x-vercel-ip-country')
+                if (country && file) {
+                    const { data: ownerSettings } = await supabase
+                        .from('users')
+                        .select('blocked_countries')
+                        .eq('id', file.owner_id)
+                        .single()
+
+                    if (ownerSettings?.blocked_countries?.includes(country)) {
+                        return NextResponse.json({
+                            valid: false,
+                            reason: 'Access revoked: Region blocked'
+                        })
+                    }
                 }
 
                 // Update heartbeat
@@ -118,7 +135,7 @@ export async function POST(request: NextRequest) {
             // Check file status
             const { data: file } = await supabase
                 .from('files')
-                .select('is_destroyed, settings')
+                .select('is_destroyed, settings, owner_id')
                 .eq('id', session.file_id)
                 .single()
 
@@ -141,6 +158,23 @@ export async function POST(request: NextRequest) {
                     valid: false,
                     reason: 'File link has expired'
                 })
+            }
+
+            // Country Check (Instant Revocation for Legacy Path)
+            const country = request.headers.get('x-vercel-ip-country')
+            if (country) {
+                const { data: ownerSettings } = await supabase
+                    .from('users')
+                    .select('blocked_countries')
+                    .eq('id', file.owner_id)
+                    .single()
+
+                if (ownerSettings?.blocked_countries?.includes(country)) {
+                    return NextResponse.json({
+                        valid: false,
+                        reason: 'Access revoked: Region blocked'
+                    })
+                }
             }
 
             // Update heartbeat

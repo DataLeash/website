@@ -11,6 +11,8 @@ export interface User {
     updated_at: string
     is_active: boolean
     trust_score: number
+    anonymous_id?: string
+    blocked_countries?: string[] // ISO 2-letter codes
 }
 
 export interface Device {
@@ -50,6 +52,7 @@ export interface FileSettings {
     allow_comments: boolean
     notify_on_view: boolean
     auto_kill_on_screenshot: boolean
+    blocked_countries?: string[] // Override global settings
 }
 
 export interface Permission {

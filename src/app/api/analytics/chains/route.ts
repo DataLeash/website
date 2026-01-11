@@ -43,17 +43,39 @@ export async function GET() {
         // Get active sessions to determine who is currently viewing
         const { data: activeSessions } = await supabase
             .from('viewing_sessions')
-            .select('viewer_email, file_id')
+            .select('viewer_email, file_id, is_active, created_at, last_heartbeat, ended_at')
             .in('file_id', files.map(f => f.id))
-            .eq('is_active', true)
 
         const activeViewerMap = new Map<string, Set<string>>()
+        // Map to store total viewing duration per viewer+file: "email:fileId" -> seconds
+        const sessionDurationMap = new Map<string, number>()
+
         for (const session of activeSessions || []) {
             const fileId = session.file_id
-            if (!activeViewerMap.has(fileId)) {
-                activeViewerMap.set(fileId, new Set())
+            const viewerEmail = session.viewer_email?.toLowerCase()
+
+            if (!viewerEmail) continue
+
+            // Track active viewers
+            if (session.is_active) {
+                if (!activeViewerMap.has(fileId)) {
+                    activeViewerMap.set(fileId, new Set())
+                }
+                activeViewerMap.get(fileId)!.add(viewerEmail)
             }
-            activeViewerMap.get(fileId)!.add(session.viewer_email?.toLowerCase())
+
+            // Calculate duration for this session
+            const startTime = new Date(session.created_at).getTime()
+            const endTime = session.ended_at
+                ? new Date(session.ended_at).getTime()
+                : session.last_heartbeat
+                    ? new Date(session.last_heartbeat).getTime()
+                    : Date.now()
+            const durationSeconds = Math.max(0, Math.floor((endTime - startTime) / 1000))
+
+            // Accumulate duration per viewer+file
+            const key = `${viewerEmail}:${fileId}`
+            sessionDurationMap.set(key, (sessionDurationMap.get(key) || 0) + durationSeconds)
         }
 
         const chains = []
@@ -109,7 +131,7 @@ export async function GET() {
                     country,
                     countryCode,
                     accessTime: req.created_at,
-                    duration: 0, // Will be calculated from session if available
+                    duration: sessionDurationMap.get(`${viewerEmail}:${file.id}`) || 0,
                     shareCount: 0,
                     isBlocked: req.status === 'denied',
                     isActive,

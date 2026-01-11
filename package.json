@@ -2,6 +2,12 @@
   "name": "portal",
   "version": "0.1.0",
   "private": true,
+  "author": "soul-less-king",
+  "license": "Proprietary",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/soul-less-king/DataLeash"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -16,6 +22,7 @@
     "@types/three": "^0.182.0",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
+    "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",

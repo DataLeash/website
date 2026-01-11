@@ -1,14 +1,29 @@
 'use client'
 
 import { useAuth } from "@/lib/hooks";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Icon3D } from "@/components/Icon3D";
+import { Copy, Check } from "lucide-react";
+
+// Fallback: Generate anonymous ID client-side if not in database
+function generateAnonymousIdFallback(userId: string): string {
+    let hash = 0;
+    const str = userId + 'dataleash_salt';
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    const hexHash = Math.abs(hash).toString(16).toUpperCase().padStart(6, '0');
+    return `DL-${hexHash.substring(0, 6)}`;
+}
 
 export default function SettingsPage() {
     const { user } = useAuth();
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [copied, setCopied] = useState(false);
     const [settings, setSettings] = useState({
         emailNotifications: true,
         pushNotifications: true,
@@ -16,6 +31,20 @@ export default function SettingsPage() {
         autoKillOnThreat: true,
         requireNdaDefault: false,
     });
+
+    // Use database anonymous_id if available, otherwise fallback to computed
+    const anonymousId = useMemo(() => {
+        if ((user as any)?.anonymous_id) {
+            return (user as any).anonymous_id;
+        }
+        return user?.id ? generateAnonymousIdFallback(user.id) : 'DL-000000';
+    }, [user]);
+
+    const copyId = () => {
+        navigator.clipboard.writeText(anonymousId);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     useEffect(() => {
         const savedSettings = localStorage.getItem('dataleash_settings');
@@ -46,12 +75,41 @@ export default function SettingsPage() {
 
                     {/* Profile Section */}
                     <div className="glass-card p-6 mb-6">
-                        <div className="flex items-center gap-4 mb-6">
+                        <div className="flex items-center gap-4 mb-4">
                             <Icon3D type="users" size="lg" />
                             <div>
                                 <h2 className="text-xl font-bold">{user?.full_name || 'User'}</h2>
                                 <p className="text-[var(--foreground-muted)]">{user?.email}</p>
                             </div>
+                        </div>
+
+                        {/* Anonymous ID Display */}
+                        <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.1)]">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-[var(--foreground-muted)]">Your Anonymous ID</p>
+                                    <p className="text-lg font-mono font-bold text-[var(--primary)]">{anonymousId}</p>
+                                </div>
+                                <button
+                                    onClick={copyId}
+                                    className="px-3 py-2 bg-[rgba(0,212,255,0.1)] hover:bg-[rgba(0,212,255,0.2)] rounded-lg flex items-center gap-2 transition"
+                                >
+                                    {copied ? (
+                                        <>
+                                            <Check className="w-4 h-4 text-green-400" />
+                                            Copied!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="w-4 h-4" />
+                                            Copy ID
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            <p className="text-xs text-[var(--foreground-muted)] mt-2">
+                                This is your unique identifier shown to viewers. Your real identity stays private.
+                            </p>
                         </div>
                     </div>
 

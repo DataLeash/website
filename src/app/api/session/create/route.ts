@@ -1,19 +1,16 @@
-import { createClient } from '@supabase/supabase-js'
-import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase-server'
+import { NextResponse, NextRequest } from 'next/server'
+import { analyzeSecurityThreat } from '@/lib/ai-security'
 
 // Use service role for session management (bypasses RLS)
-function getSupabaseAdmin() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-    )
+async function getSupabaseAdmin() {
+    return await createClient()
 }
 
 // POST /api/session/create - Create a new viewing session
 export async function POST(request: NextRequest) {
     try {
-        const supabase = getSupabaseAdmin()
+        const supabase = await getSupabaseAdmin()
         const body = await request.json()
 
         // Support both naming conventions
@@ -28,6 +25,49 @@ export async function POST(request: NextRequest) {
         // Get client IP
         const forwarded = request.headers.get('x-forwarded-for')
         const ip = forwarded ? forwarded.split(',')[0] : request.headers.get('x-real-ip') || '0.0.0.0'
+
+        // AI Threat Detection (Groq Powered)
+        const threat = await analyzeSecurityThreat({
+            ip: request.headers.get('x-forwarded-for') || 'unknown',
+            userAgent: request.headers.get('user-agent') || 'unknown', // Using user-agent from headers
+            fileId: fileId,
+            timestamp: Date.now()
+        });
+
+        if (threat.blockAction) {
+            console.warn(`[Blocked] High risk session attempt: ${threat.reason}`);
+            return NextResponse.json(
+                { error: 'Security Risk Detected', reason: threat.reason },
+                { status: 403 }
+            );
+        }
+
+        // Country Blocking Check
+        const country = request.headers.get('x-vercel-ip-country')
+        if (country) {
+            // Get file owner to check their blocklist
+            const { data: fileOwner } = await supabase
+                .from('files')
+                .select('owner_id')
+                .eq('id', fileId)
+                .single()
+
+            if (fileOwner) {
+                const { data: ownerSettings } = await supabase
+                    .from('users')
+                    .select('blocked_countries')
+                    .eq('id', fileOwner.owner_id)
+                    .single()
+
+                if (ownerSettings?.blocked_countries?.includes(country)) {
+                    console.warn(`[Blocked] Connection from blocked country: ${country}`);
+                    return NextResponse.json(
+                        { error: 'Access Denied', reason: 'This content is not available in your region' },
+                        { status: 403 }
+                    );
+                }
+            }
+        }
 
         // Check if session already exists
         const { data: existing } = await supabase
@@ -113,6 +153,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             session_id: session.id,
+            security_check: threat.riskLevel,
             started_at: session.started_at,
             heartbeat_interval: 30000
         })

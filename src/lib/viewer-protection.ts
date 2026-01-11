@@ -281,17 +281,26 @@ function setupDevToolsDetection(config: ProtectionConfig) {
 function setupExtensionDetection(config: ProtectionConfig) {
     // Check for known screenshot/recording extensions
     const extensionIndicators = [
+        // Screenshot extensions
         '[data-nimbus-screenshot]',
         '[data-awesome-screenshot]',
         '.lightshot-btn',
         '#fireshot-container',
+        '[data-greenshot]',
+        // Recording extensions
         '[data-loom]',
         '[data-vidyard]',
         '.screencastify-extension',
-        '#screenleap-container'
+        '#screenleap-container',
+        '[data-screenpal]',
+        // DevTools and debugging
+        '.react-devtools-root',
+        '#__vue-devtools-container__',
+        '[data-testid="storybook-root"]',
     ];
 
     const checkExtensions = () => {
+        // Check for known extension DOM elements
         for (const selector of extensionIndicators) {
             if (document.querySelector(selector)) {
                 console.log('[DataLeash] Recording/Screenshot extension detected');
@@ -300,6 +309,14 @@ function setupExtensionDetection(config: ProtectionConfig) {
                 return true;
             }
         }
+
+        // Check for Redux DevTools (common in dev environments)
+        if ((window as any).__REDUX_DEVTOOLS_EXTENSION__) {
+            console.log('[DataLeash] Redux DevTools detected');
+            logSecurityEvent('devtools_extension', config);
+            // Don't destroy, just log - it's a dev tool, not a capture tool
+        }
+
         return false;
     };
 
@@ -311,12 +328,29 @@ function setupExtensionDetection(config: ProtectionConfig) {
         for (const mutation of mutations) {
             for (const node of Array.from(mutation.addedNodes)) {
                 if (node instanceof HTMLElement) {
+                    // Check for known extension selectors
                     for (const selector of extensionIndicators) {
                         if (node.matches?.(selector) || node.querySelector?.(selector)) {
                             console.log('[DataLeash] Extension injection detected');
                             logSecurityEvent('extension_injection', config);
                             destroyContent();
                             return;
+                        }
+                    }
+
+                    // Check for foreign script injections (non-origin scripts)
+                    if (node.tagName === 'SCRIPT') {
+                        const src = node.getAttribute('src');
+                        if (src && !src.startsWith(window.location.origin) && !src.startsWith('/')) {
+                            // Allow known CDNs
+                            const allowedCDNs = ['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com'];
+                            const isAllowed = allowedCDNs.some(cdn => src.includes(cdn));
+
+                            if (!isAllowed) {
+                                console.log('[DataLeash] Foreign script injection detected:', src);
+                                logSecurityEvent('foreign_script_injection', config, { src });
+                                // Don't destroy immediately, but flag it
+                            }
                         }
                     }
                 }
@@ -439,6 +473,295 @@ async function logSecurityEvent(
 }
 
 // =====================================================
+// SCREEN SHARE / RECORDING DETECTION
+// =====================================================
+
+let screenShareActive = false;
+let screenShareCheckInterval: NodeJS.Timeout | null = null;
+
+export function setupScreenShareDetection(config: ProtectionConfig) {
+    // Method 1: Detect if getDisplayMedia was requested
+    // We can't stop it, but we can detect when sharing starts
+
+    // Monitor for screen capture via experimental API
+    if ('mediaDevices' in navigator) {
+        // Override getDisplayMedia to detect when it's called
+        const originalGetDisplayMedia = navigator.mediaDevices.getDisplayMedia?.bind(navigator.mediaDevices);
+
+        if (originalGetDisplayMedia) {
+            (navigator.mediaDevices as any).getDisplayMedia = async function (constraints: any) {
+                console.log('[DataLeash] Screen share/recording request detected!');
+                logSecurityEvent('screen_share_detected', config);
+
+                // Blur content immediately
+                blurProtectedContent();
+                screenShareActive = true;
+
+                try {
+                    const stream = await originalGetDisplayMedia(constraints);
+
+                    // Monitor when sharing stops
+                    stream.getVideoTracks().forEach(track => {
+                        track.addEventListener('ended', () => {
+                            console.log('[DataLeash] Screen share ended');
+                            screenShareActive = false;
+                            unblurProtectedContent();
+                        });
+                    });
+
+                    return stream;
+                } catch (e) {
+                    // User cancelled - unblur
+                    screenShareActive = false;
+                    unblurProtectedContent();
+                    throw e;
+                }
+            };
+        }
+    }
+
+    // Method 2: Detect Picture-in-Picture (could be used for recording)
+    document.addEventListener('enterpictureinpicture', () => {
+        console.log('[DataLeash] Picture-in-Picture detected');
+        logSecurityEvent('pip_detected', config);
+        blurProtectedContent();
+    });
+
+    document.addEventListener('leavepictureinpicture', () => {
+        if (!screenShareActive) {
+            unblurProtectedContent();
+        }
+    });
+}
+
+function blurProtectedContent() {
+    const protectedElements = document.querySelectorAll('[data-protected], .protected-content, .content-container');
+    protectedElements.forEach(el => {
+        (el as HTMLElement).style.filter = 'blur(30px)';
+        (el as HTMLElement).style.transition = 'filter 0.1s';
+    });
+
+    // Also show warning overlay
+    showSecurityOverlay('Screen Sharing Detected - Content Protected');
+}
+
+function unblurProtectedContent() {
+    const protectedElements = document.querySelectorAll('[data-protected], .protected-content, .content-container');
+    protectedElements.forEach(el => {
+        (el as HTMLElement).style.filter = '';
+    });
+
+    hideSecurityOverlay();
+}
+
+function showSecurityOverlay(message: string) {
+    let overlay = document.getElementById('dl-security-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'dl-security-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #ef4444;
+            padding: 40px 60px;
+            border-radius: 16px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 999999;
+            text-align: center;
+            border: 2px solid #ef4444;
+            box-shadow: 0 0 50px rgba(239, 68, 68, 0.5);
+        `;
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">🛡️</div>
+        <div>${message}</div>
+        <div style="font-size: 14px; margin-top: 12px; color: #888;">Content hidden for security</div>
+    `;
+    overlay.style.display = 'block';
+}
+
+function hideSecurityOverlay() {
+    const overlay = document.getElementById('dl-security-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// =====================================================
+// SCRIPT INJECTION BLOCKING
+// =====================================================
+
+export function setupScriptInjectionBlocking(config: ProtectionConfig) {
+    // Monitor for any script injections
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of Array.from(mutation.addedNodes)) {
+                if (node instanceof HTMLScriptElement) {
+                    const src = node.src || '';
+                    const isInline = !src;
+                    const isOurScript = src.startsWith(window.location.origin) || src.startsWith('/');
+
+                    // Allow our own scripts and inline Next.js scripts
+                    if (!isOurScript && !isInline) {
+                        console.log('[DataLeash] Blocking injected script:', src);
+                        logSecurityEvent('script_injection_blocked', config, { src });
+                        node.remove();
+                    }
+                }
+
+                // Also block injected iframes
+                if (node instanceof HTMLIFrameElement) {
+                    const src = node.src || '';
+                    if (!src.startsWith(window.location.origin) && !src.startsWith('about:')) {
+                        console.log('[DataLeash] Blocking injected iframe:', src);
+                        logSecurityEvent('iframe_injection_blocked', config, { src });
+                        node.remove();
+                    }
+                }
+            }
+        }
+    });
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+
+    // Also monitor large WebGL canvases (can be used for fingerprinting/capture)
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    (HTMLCanvasElement.prototype.getContext as any) = function (this: HTMLCanvasElement, type: string, ...args: any[]) {
+        if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+            // Check if this canvas is for capture purposes
+            if (this.width > 500 && this.height > 500 && !this.closest('[data-allowed-canvas]')) {
+                console.log('[DataLeash] Large WebGL canvas detected - monitoring');
+                logSecurityEvent('webgl_canvas_detected', config);
+            }
+        }
+        return originalGetContext.apply(this, [type, ...args] as any);
+    };
+}
+
+// =====================================================
+// TAB VISIBILITY PROTECTION
+// =====================================================
+
+export function setupVisibilityProtection(config: ProtectionConfig) {
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // User switched tabs - could be to screenshot tool
+            console.log('[DataLeash] Tab hidden - monitoring');
+            // Don't blur immediately, but be ready
+        }
+    });
+
+    // Blur when window loses focus (could be switching to capture tool)
+    window.addEventListener('blur', () => {
+        if (screenShareActive) return; // Already handled
+
+        // Brief blur on focus loss
+        const protectedElements = document.querySelectorAll('[data-protected]');
+        protectedElements.forEach(el => {
+            (el as HTMLElement).style.filter = 'blur(5px)';
+        });
+    });
+
+    window.addEventListener('focus', () => {
+        if (screenShareActive) return;
+
+        // Restore on focus
+        const protectedElements = document.querySelectorAll('[data-protected]');
+        protectedElements.forEach(el => {
+            (el as HTMLElement).style.filter = '';
+        });
+    });
+}
+
+// =====================================================
+// ENHANCED SCREENSHOT KEY DETECTION
+// =====================================================
+
+export function setupEnhancedScreenshotDetection(config: ProtectionConfig) {
+    document.addEventListener('keydown', (e) => {
+        // Windows: Print Screen, Win+Shift+S, Alt+Print Screen
+        // Mac: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5
+
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+        if (isMac) {
+            // Mac screenshot shortcuts
+            if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) {
+                e.preventDefault();
+                logSecurityEvent('mac_screenshot_blocked', config, { key: e.key });
+                flashWarning();
+                return false;
+            }
+        } else {
+            // Windows screenshot shortcuts
+            if (e.key === 'PrintScreen') {
+                e.preventDefault();
+                logSecurityEvent('printscreen_blocked', config);
+                flashWarning();
+                return false;
+            }
+
+            // Win+Shift+S (Snipping tool)
+            if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                logSecurityEvent('snipping_tool_blocked', config);
+                flashWarning();
+                return false;
+            }
+        }
+    }, true);
+}
+
+function flashWarning() {
+    const flash = document.createElement('div');
+    flash.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(239, 68, 68, 0.3);
+        z-index: 999999;
+        pointer-events: none;
+        animation: dl-flash 0.5s ease-out forwards;
+    `;
+
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes dl-flash {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(flash);
+
+    setTimeout(() => {
+        flash.remove();
+        style.remove();
+    }, 500);
+}
+
+// =====================================================
+// ACTIVATE ALL ADVANCED PROTECTIONS
+// =====================================================
+
+export function activateAdvancedProtections(config: ProtectionConfig) {
+    setupScreenShareDetection(config);
+    setupScriptInjectionBlocking(config);
+    setupVisibilityProtection(config);
+    setupEnhancedScreenshotDetection(config);
+
+    console.log('[DataLeash] Advanced protections activated');
+}
+
+// =====================================================
 // EXPORTS
 // =====================================================
 
@@ -453,3 +776,8 @@ export function getLastHeartbeatTime(): number {
 export function isDevToolsOpen(): boolean {
     return devToolsOpen;
 }
+
+export function isScreenShareActive(): boolean {
+    return screenShareActive;
+}
+
