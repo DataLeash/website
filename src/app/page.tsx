@@ -2,103 +2,90 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import dynamic from 'next/dynamic'
 import { DataLeashLogo } from "@/components/DataLeashLogo";
 import { HomePageEffects } from "@/components/HomePageEffects";
+import { LiveActivityTicker } from "@/components/LiveActivityTicker";
 import {
   Shield, Lock, Eye, Zap, Cloud, BarChart3,
   KeyRound, Skull, Brain, Cpu, Camera,
   ChevronDown, ChevronUp, Github, Linkedin,
-  MessageCircle, Heart, ExternalLink, Quote,
-  FileKey, Users, Globe, Clock
+  MessageCircle, ExternalLink, Quote,
+  FileKey, Users, Globe as GlobeIcon, Clock, Check, PlayCircle, CreditCard
 } from "lucide-react";
 
-// FAQ Data from DataLeash documentation
-const faqData = [
-  {
-    question: "How secure is DataLeash?",
-    answer: "Military-grade AES-256-GCM encryption with 4-part key splitting using Shamir's Secret Sharing. Your files are protected with ChaCha20-Poly1305 container encryption, TLS 1.3 transport, and server-side encryption. Without ALL four key parts, the file is mathematically impossible to decrypt."
-  },
-  {
-    question: "Can recipients save or download my files?",
-    answer: "No. Files decrypt ONLY in RAM and never touch the disk. They stream securely through our protected viewer. When the session ends, memory is overwritten with zeros and freed. There's literally nothing to save."
-  },
-  {
-    question: "What happens if someone tries to screenshot?",
-    answer: "Screenshots are blocked at the kernel level. We detect and block Print Screen, Snipping Tool, ShareX, OBS, and all known capture software. If an attempt is made, the screen shows blank and you're immediately alerted with the attacker's details."
-  },
-  {
-    question: "Can I revoke access after someone downloads a file?",
-    answer: "Absolutely. One button instantly revokes access for anyone, anywhere. Our Chain Kill feature can destroy ALL copies—even if shared to millions of people. The files become permanent garbage without the server keys."
-  },
-  {
-    question: "What platforms are supported?",
-    answer: "The web portal works on any browser. For viewing protected files, we support Windows 10/11 and macOS 12+ (Monterey and later) with our secure runtime. Mobile notifications work via PWA on iOS and Android."
-  },
-  {
-    question: "How does the ownership system work?",
-    answer: "Your identity is cryptographically embedded in every file and can NEVER be removed. No matter how many times the file is shared (even to millions), you remain the verified owner with full control, tracking, and revocation rights."
-  }
-];
+// Dynamically import Globe3D to avoid server-side issues
+const Globe3D = dynamic(() => import('@/components/Globe3D').then(mod => mod.Globe3D), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-slate-900/20 animate-pulse rounded-full" />
+})
 
-// Feature data with Lucide icons
+// Dummy data for the Globe
+const DUMMY_LOCATIONS = [
+  { id: '1', lat: 40.7128, lon: -74.0060, city: 'New York', country: 'USA', isActive: true, isBlocked: false, viewerCount: 12 },
+  { id: '2', lat: 51.5074, lon: -0.1278, city: 'London', country: 'UK', isActive: true, isBlocked: false, viewerCount: 8 },
+  { id: '3', lat: 35.6762, lon: 139.6503, city: 'Tokyo', country: 'Japan', isActive: true, isBlocked: false, viewerCount: 5 },
+  { id: '4', lat: 55.7558, lon: 37.6173, city: 'Moscow', country: 'Russia', isActive: false, isBlocked: true, viewerCount: 2 },
+  { id: '5', lat: -33.8688, lon: 151.2093, city: 'Sydney', country: 'Australia', isActive: true, isBlocked: false, viewerCount: 3 },
+  { id: '6', lat: 48.8566, lon: 2.3522, city: 'Paris', country: 'France', isActive: true, isBlocked: false, viewerCount: 6 },
+  { id: '7', lat: 31.2304, lon: 121.4737, city: 'Shanghai', country: 'China', isActive: false, isBlocked: true, viewerCount: 15 },
+  { id: '8', lat: 19.0760, lon: 72.8777, city: 'Mumbai', country: 'India', isActive: true, isBlocked: false, viewerCount: 9 },
+  { id: '9', lat: -23.5505, lon: -46.6333, city: 'São Paulo', country: 'Brazil', isActive: true, isBlocked: false, viewerCount: 4 },
+  { id: '10', lat: 25.2048, lon: 55.2708, city: 'Dubai', country: 'UAE', isActive: true, isBlocked: false, viewerCount: 7 },
+]
+
+
+
+// Feature data
+// Feature data
 const features = [
   {
     icon: KeyRound,
-    title: "4-Key Encryption",
-    description: "Shamir's Secret Sharing splits your encryption key into 4 parts. Without ALL parts—from server, device, user, and runtime—the file is mathematically unbreakable garbage.",
-    gradient: "from-cyan-500 to-blue-600"
+    title: "Impossible Math",
+    description: "Four keys. Four locations. Zero possibility of brute force. Unless an attacker controls the user, server, device, and runtime simultaneously, the data doesn't exist.",
+    color: "text-blue-400",
+    border: "group-hover:border-blue-500/50",
+    bg: "group-hover:bg-blue-500/10"
   },
   {
     icon: Skull,
-    title: "Instant Revocation",
-    description: "One button destroys the decryption keys. Future access attempts are instantly denied. Anyone currently viewing will lose access on their next session.",
-    gradient: "from-red-500 to-rose-600"
+    title: "The Kill Switch",
+    description: "Nuke access globally in milliseconds. Whether the file is downloaded, open, or halfway across the world—when you say stop, it vanishes.",
+    color: "text-red-500",
+    border: "group-hover:border-red-500/50",
+    bg: "group-hover:bg-red-500/10"
   },
   {
     icon: Brain,
-    title: "AI Security",
-    description: "Groq-powered threat detection analyzes behavior in real-time. Unusual time, location, or device? Automatic risk scoring, alerts, and blocking before damage happens.",
-    gradient: "from-purple-500 to-violet-600"
+    title: "Active Threat Neutralization",
+    description: "Our neural network watches the watcher. If the behavior, location, or device integrity looks wrong, we lock the door before they even knock.",
+    color: "text-purple-400",
+    border: "group-hover:border-purple-500/50",
+    bg: "group-hover:bg-purple-500/10"
   },
   {
     icon: Cpu,
-    title: "Streaming Decryption",
-    description: "Files are decrypted on-the-fly in the browser and never saved to disk. When you close the viewer, the decrypted content is released from memory.",
-    gradient: "from-emerald-500 to-green-600"
+    title: "Ghost Execution",
+    description: "Files live in RAM, never on disk. When the session ends, we verify a zero-fill wipe. There is literally nothing left to recover.",
+    color: "text-emerald-400",
+    border: "group-hover:border-emerald-500/50",
+    bg: "group-hover:bg-emerald-500/10"
   },
   {
     icon: Camera,
-    title: "Capture Prevention",
-    description: "Browser-level protections block common screenshot shortcuts and disable copy/paste. Watermarks identify viewers. Detected capture attempts are logged and alerted.",
-    gradient: "from-orange-500 to-amber-600"
+    title: "Blackout Technology",
+    description: "We blind the OS. Snipping tools, screen recorders, and capture APIs return black pixels. If they try to look, the screen goes dark.",
+    color: "text-orange-400",
+    border: "group-hover:border-orange-500/50",
+    bg: "group-hover:bg-orange-500/10"
   },
   {
     icon: BarChart3,
-    title: "Complete Tracking",
-    description: "Know exactly who opened your file, when, from where, for how long. See the entire sharing tree. Get real-time alerts. Generate court-ready evidence packages.",
-    gradient: "from-pink-500 to-fuchsia-600"
-  }
-];
-
-// Stats data
-const stats = [
-  { icon: Shield, value: "AES-256", label: "Military Encryption" },
-  { icon: Users, value: "∞", label: "Share to Anyone" },
-  { icon: Globe, value: "Instant", label: "Global Revoke" },
-  { icon: Clock, value: "0ms", label: "Trace Left" }
-];
-
-// Professional quotes
-const quotes = [
-  {
-    text: "Information shouldn't be immortal. It should exist only as long as you permit.",
-    author: "Ephemeral Security",
-    role: "Core Philosophy"
-  },
-  {
-    text: "The only way to keep a secret is to ensure it can vanish without a trace.",
-    author: "Data Sovereignty",
-    role: "Zero-Trust Architecture"
+    title: "Forensic Omniscience",
+    description: "See everything. Every IP, every device fingerprint, every second of access logged in an immutable ledger. You'll know who, when, and exactly where.",
+    color: "text-pink-400",
+    border: "group-hover:border-pink-500/50",
+    bg: "group-hover:bg-pink-500/10"
   }
 ];
 
@@ -110,20 +97,20 @@ function FAQItem({ question, answer, isOpen, onClick }: {
   onClick: () => void;
 }) {
   return (
-    <div className="glass-card border border-white/10 overflow-hidden transition-all duration-300">
+    <div className="glass-card overflow-hidden hover:bg-slate-800/30 transition-colors">
       <button
         onClick={onClick}
-        className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-white/5 transition"
+        className="w-full px-6 py-6 flex items-center justify-between text-left"
       >
-        <span className="text-lg font-semibold pr-4">{question}</span>
+        <span className="text-base font-semibold text-slate-200">{question}</span>
         {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-[var(--primary)] flex-shrink-0" />
+          <ChevronUp className="w-5 h-5 text-blue-400 flex-shrink-0" />
         ) : (
-          <ChevronDown className="w-5 h-5 text-[var(--foreground-muted)] flex-shrink-0" />
+          <ChevronDown className="w-5 h-5 text-slate-500 flex-shrink-0" />
         )}
       </button>
       <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-6 pb-5 text-[var(--foreground-muted)] leading-relaxed">
+        <div className="px-6 pb-6 text-slate-400 text-sm leading-relaxed border-t border-slate-800/50 pt-4">
           {answer}
         </div>
       </div>
@@ -131,347 +118,271 @@ function FAQItem({ question, answer, isOpen, onClick }: {
   );
 }
 
-export default function Home() {
+// import { GlitchText } from "@/components/GlitchText"; // Removed
+import { SecurityHUD } from "@/components/SecurityHUD";
+import { EncryptedText } from "@/components/EncryptedText";
+import { AIChatbot } from "@/components/AIChatbot";
+import { SecurityProtocols } from "@/components/SecurityProtocols";
+import { MissionSection } from "@/components/MissionSection";
+
+// ... (imports remain)
+
+export default function HomePage() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(0);
+  const [isAttackMode, setIsAttackMode] = useState(false);
+  const [discordCopied, setDiscordCopied] = useState(false);
+
+  const handleCopyDiscord = () => {
+    navigator.clipboard.writeText('ashenone616');
+    setDiscordCopied(true);
+    setTimeout(() => setDiscordCopied(false), 2000);
+  };
 
   return (
-    <div className="gradient-bg min-h-screen relative overflow-hidden">
+    <div className="gradient-bg min-h-screen relative overflow-hidden flex flex-col font-sans selection:bg-blue-500/30">
+      <SecurityHUD />
+
       {/* Background Effects */}
       <HomePageEffects />
 
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass-card mx-4 mt-4 px-6 py-4 flex items-center justify-between backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <DataLeashLogo size={40} />
-          <span className="text-xl font-bold text-gradient">DataLeash</span>
+      {/* Centered Header with Logo */}
+      <header className="absolute top-0 left-0 right-0 z-50 flex justify-center pt-8 pointer-events-none">
+        <div className="pointer-events-auto">
+          <DataLeashLogo size={120} />
         </div>
-        <div className="hidden md:flex items-center gap-8">
-          <a href="#about" className="text-[var(--foreground-muted)] hover:text-white transition text-sm">About</a>
-          <a href="#features" className="text-[var(--foreground-muted)] hover:text-white transition text-sm">Features</a>
-          <a href="#faq" className="text-[var(--foreground-muted)] hover:text-white transition text-sm">FAQ</a>
-          <a
-            href="https://github.com/soul-less-king"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-[var(--foreground-muted)] hover:text-white transition text-sm"
-          >
-            <Github className="w-4 h-4" />
-            GitHub
-          </a>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/login" className="text-[var(--foreground-muted)] hover:text-white transition">
-            Login
-          </Link>
-          <Link href="/signup" className="glow-button px-6 py-2 rounded-full text-black font-semibold hover:scale-105 transition-transform">
-            Get Started
-          </Link>
-        </div>
-      </nav>
+      </header>
 
-      {/* Hero Section */}
-      <section className="pt-32 md:pt-40 pb-16 px-6 relative">
-        <div className="max-w-6xl mx-auto text-center">
-          {/* Logo with glow */}
-          <div className="mb-10 transform hover:scale-105 transition-transform duration-500">
-            <DataLeashLogo size={180} className="mx-auto drop-shadow-[0_0_60px_rgba(0,212,255,0.4)]" showText={true} />
-          </div>
+      {/* ... (Ticker and Nav remain) */}
 
-          {/* Philosophy Quote */}
-          <div className="mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card text-sm text-[var(--foreground-muted)] border border-white/10">
-            <Quote className="w-4 h-4 text-[var(--primary)]" />
-            <span className="italic">"Data usually never dies. We gave it a kill switch."</span>
-          </div>
+      <main className="flex-grow pt-48">
+        {/* Hero Section */}
+        <section className="px-6 min-h-[90vh] flex items-center relative">
+          <div className="max-w-[1400px] mx-auto w-full grid lg:grid-cols-2 gap-16 items-center">
 
-          {/* Main Headline */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 tracking-tight leading-tight">
-            <span className="text-gradient">Total Control.</span>
-            <br />
-            <span className="text-white">Zero Trace.</span>
-          </h1>
-
-          {/* Subheadline */}
-          <p className="text-lg md:text-xl text-[var(--foreground-muted)] max-w-3xl mx-auto mb-10 leading-relaxed">
-            Share files that self-destruct. Track every view in real-time.
-            <br className="hidden md:block" />
-            Revoke access instantly—even after they download it.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <Link
-              href="/signup"
-              className="glow-button px-10 py-4 rounded-full text-black font-bold text-lg hover:scale-105 transition-transform shadow-[0_0_40px_rgba(0,212,255,0.4)] flex items-center gap-2"
-            >
-              <FileKey className="w-5 h-5" />
-              Start Protecting Files
-            </Link>
-            <a
-              href="#features"
-              className="glass-card px-8 py-4 rounded-full font-semibold hover:bg-white/10 transition border border-white/10 hover:border-white/30 flex items-center gap-2"
-            >
-              See How It Works
-              <ChevronDown className="w-4 h-4" />
-            </a>
-          </div>
-
-          {/* Stats Banner */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-            {stats.map((stat, i) => (
-              <div
-                key={i}
-                className="glass-card p-6 text-center group hover:bg-white/5 transition border border-white/5 hover:border-[var(--primary)]/30"
-              >
-                <stat.icon className="w-6 h-6 mx-auto mb-3 text-[var(--primary)] group-hover:scale-110 transition-transform" />
-                <div className="text-2xl md:text-3xl font-black text-gradient mb-1">{stat.value}</div>
-                <div className="text-xs text-[var(--foreground-muted)] uppercase tracking-wider">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Who We Are Section */}
-      <section id="about" className="py-20 px-6 relative">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* Left: Text Content */}
-            <div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                <span className="text-gradient">Who We Are</span>
-              </h2>
-              <p className="text-lg text-[var(--foreground-muted)] mb-6 leading-relaxed">
-                DataLeash was born from a simple truth: once you share a file, you lose control.
-                We built a system that breaks that paradigm completely.
-              </p>
-              <p className="text-[var(--foreground-muted)] mb-8 leading-relaxed">
-                Our technology treats files as <strong className="text-white">self-executing programs</strong> that
-                require the DataLeash runtime to function. Without it, your data is encrypted garbage—
-                mathematically impossible to access.
-              </p>
-
-              {/* Tech Stack Pills */}
-              <div className="flex flex-wrap gap-2 mb-8">
-                {['AES-256-GCM', 'ChaCha20', 'Intel SGX', 'Zero-Knowledge', 'Blockchain Audit'].map((tech, i) => (
-                  <span
-                    key={i}
-                    className="px-3 py-1 rounded-full text-xs font-mono bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30"
-                  >
-                    {tech}
-                  </span>
-                ))}
+            <div className="text-left relative z-20 pt-10">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold tracking-wide uppercase mb-8">
+                <Shield className="w-3 h-3" />
+                Enterprise Grade Security
               </div>
 
-              <div className="flex items-center gap-4">
-                <a
-                  href="https://github.com/soul-less-king"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-5 py-3 rounded-lg glass-card hover:bg-white/10 transition border border-white/10"
+              {/* Main Headline */}
+              <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tighter text-white mb-8 leading-[1.1]">
+                {/* 1st Line */}
+                <div className="flex flex-wrap gap-x-6">
+                  <EncryptedText text="Own It." startDelay={0} className="inline-block" />
+                  <span className="">
+                    <EncryptedText text="Control It." startDelay={700} />
+                  </span>
+                </div>
+
+                {/* 2nd Line */}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 inline-block">
+                  <EncryptedText text="Revoke It." startDelay={1400} />
+                </span>
+              </h1>
+              <p className="text-xl text-slate-400 mb-10 max-w-2xl font-light leading-relaxed">
+                <EncryptedText text="The Final Word on Your Files." startDelay={2500} />
+              </p>
+
+              {/* Add global fade-in keyframe if not present */}
+              <style jsx global>{`
+                @keyframes fadeIn {
+                  from { opacity: 0; transform: translateY(10px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link href="/signup" className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-bold transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] flex items-center justify-center gap-2 group">
+                  Start Leashing
+                  <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
+                </Link>
+              </div>
+
+            </div>
+
+            {/* Right: Globe 3D with Toggle */}
+            <div className="relative h-[550px] w-full lg:block hidden">
+
+              {/* Toggle Controls */}
+              <div className="absolute top-4 right-4 z-30 flex gap-2">
+                <button
+                  onClick={() => setIsAttackMode(false)}
+                  className={`px-3 py-1 text-xs font-bold rounded border backdrop-blur-md transition-all ${!isAttackMode ? 'bg-blue-500/20 border-blue-500 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-black/40 border-slate-700 text-slate-500'}`}
                 >
-                  <Github className="w-5 h-5" />
-                  View on GitHub
-                  <ExternalLink className="w-4 h-4 opacity-50" />
-                </a>
+                  SECURE TRAFFIC
+                </button>
+                <button
+                  onClick={() => setIsAttackMode(true)}
+                  className={`px-3 py-1 text-xs font-bold rounded border backdrop-blur-md transition-all ${isAttackMode ? 'bg-red-500/20 border-red-500 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-black/40 border-slate-700 text-slate-500'}`}
+                >
+                  THREAT MAP
+                </button>
+              </div>
+
+              <div className={`absolute inset-0 blur-[120px] rounded-full transition-colors duration-700 ${isAttackMode ? 'bg-red-600/10' : 'bg-blue-600/5'}`} />
+              <div className="relative w-full h-full grayscale-[0.3] hover:grayscale-0 transition-all duration-700 opacity-90">
+                <Globe3D locations={DUMMY_LOCATIONS} isAttackMode={isAttackMode} />
               </div>
             </div>
 
-            {/* Right: Quote Card */}
-            <div className="glass-card p-8 border border-[var(--primary)]/20 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[var(--primary)]/20 to-transparent rounded-bl-full" />
-              <Quote className="w-10 h-10 text-[var(--primary)] mb-6 opacity-50" />
-              {quotes.map((quote, i) => (
-                <div key={i} className={i > 0 ? 'mt-8 pt-8 border-t border-white/10' : ''}>
-                  <p className="text-xl md:text-2xl font-light italic mb-4 leading-relaxed">
-                    "{quote.text}"
+          </div>
+        </section>
+
+        {/* Mission / About Section */}
+        <MissionSection />
+
+        {/* Features Grid */}
+        <section id="features" className="py-32 px-6 bg-slate-950 border-y border-slate-800 relative z-10 shadow-2xl">
+          <div className="max-w-[1400px] mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight text-white">
+                  Zero-Trust Architecture.
+                </h2>
+                <p className="text-slate-300 max-w-xl text-lg font-medium">
+                  Encryption is standard. We engineer the environment.
+                </p>
+              </div>
+              <div className="text-right hidden md:block">
+                <div className="text-4xl font-bold text-blue-500 mb-1">6</div>
+                <div className="text-sm text-slate-400 uppercase tracking-widest font-semibold">Security Layers</div>
+              </div>
+            </div>
+
+            {/* Inject Scanner CSS */}
+            <style jsx global>{`
+              @keyframes scan {
+                0% { transform: translateY(-100%); opacity: 0; }
+                20% { opacity: 1; }
+                80% { opacity: 1; }
+                100% { transform: translateY(100%); opacity: 0; }
+              }
+              .animate-scan {
+                animation: scan 2.5s linear infinite;
+              }
+            `}</style>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {features.map((feature, i) => (
+                <div key={i} className={`group p-8 rounded-2xl bg-slate-900 border border-slate-800 transition-all duration-300 shadow-lg hover:shadow-2xl ${feature.border} ${feature.bg} relative overflow-hidden`}>
+
+                  {/* Scanner Effect */}
+                  <div className={`absolute top-0 left-0 w-full h-[50%] bg-gradient-to-b from-transparent via-${feature.color.split('-')[1]}-500/10 to-transparent -translate-y-full group-hover:animate-scan pointer-events-none`} />
+                  <div className={`absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-${feature.color.split('-')[1]}-400 to-transparent -translate-y-full group-hover:animate-scan opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]`} />
+
+                  {/* Internal Glow Blob */}
+                  <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-500 blur-2xl ${feature.color.replace('text-', 'bg-')}`} />
+
+                  <feature.icon className={`w-8 h-8 ${feature.color} mb-6 relative z-10 transition-transform duration-300 group-hover:scale-110`} />
+
+                  <h3 className="text-xl font-bold mb-3 text-white relative z-10 min-h-[1.75rem]">
+                    <EncryptedText text={feature.title} hoverOnly={true} />
+                  </h3>
+
+                  <p className="text-slate-300 leading-relaxed text-sm font-medium relative z-10">
+                    {feature.description}
                   </p>
-                  <div>
-                    <div className="font-semibold text-[var(--primary)]">{quote.author}</div>
-                    <div className="text-sm text-[var(--foreground-muted)]">{quote.role}</div>
-                  </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-6 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              <span className="text-gradient">Ultimate Protection</span>
-            </h2>
-            <p className="text-[var(--foreground-muted)] max-w-2xl mx-auto">
-              Six layers of security that work together to make your files completely untouchable.
-            </p>
-          </div>
+        {/* Security Protocols / FAQ */}
+        <SecurityProtocols />
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
-              <div
-                key={i}
-                className="glass-card p-8 group hover:-translate-y-2 transition-all duration-300 border border-white/5 hover:border-[var(--primary)]/50 relative overflow-hidden"
+        {/* CTA Section - Premium & Attractive */}
+        <section className="py-32 px-6 relative z-10">
+          <div className="max-w-5xl mx-auto relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl opacity-20 blur-xl group-hover:opacity-30 transition-opacity duration-700" />
+            <div className="relative rounded-3xl bg-slate-900/90 border border-slate-800 p-12 md:p-20 text-center overflow-hidden backdrop-blur-xl">
+
+              {/* Subtle background grid */}
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,black,transparent)] pointer-events-none" />
+
+              <h2 className="text-4xl md:text-6xl font-bold mb-8 tracking-tighter text-white relative z-10">
+                Sent Doesn't Mean <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Gone.</span>
+              </h2>
+              <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto font-light leading-relaxed relative z-10">
+                Retain absolute ownership of your files even <em className="text-slate-200 not-italic">after</em> they leave your device. Share freely, revoke instantly.
+              </p>
+
+              <Link
+                href="/signup"
+                className="relative z-10 inline-flex items-center justify-center px-10 py-5 text-lg font-bold text-slate-950 bg-white rounded-full hover:bg-blue-50 hover:scale-105 transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)]"
               >
-                {/* Background gradient on hover */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                Start Leashing Data
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
 
-                {/* Icon */}
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                  <feature.icon className="w-7 h-7 text-white" />
-                </div>
+      {/* Footer - Minimal */}
+      <footer className="py-12 px-6 border-t border-slate-900 bg-slate-950">
+        <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
+          <div className="flex items-center gap-3 opacity-80">
+            <DataLeashLogo size={24} />
+            <span className="font-semibold text-slate-300">DataLeash</span>
+          </div>
 
-                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                <p className="text-[var(--foreground-muted)] leading-relaxed text-sm">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
+          <div className="flex items-center gap-8 text-sm text-slate-500">
+            <Link href="/privacy" className="hover:text-slate-300 transition">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-slate-300 transition">Terms of Service</Link>
           </div>
         </div>
-      </section>
 
-      {/* Research Section */}
-      <section className="py-16 px-6 border-y border-[var(--primary)]/10 bg-gradient-to-r from-[var(--primary)]/5 via-transparent to-[var(--primary)]/5">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-12 h-[1px] bg-gradient-to-r from-transparent to-[var(--primary)]" />
-            <span className="text-[var(--primary)] uppercase text-sm tracking-widest font-semibold">Research-Backed</span>
-            <div className="w-12 h-[1px] bg-gradient-to-l from-transparent to-[var(--primary)]" />
+        {/* Developer Attribution Bar */}
+        <div className="pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-center items-center gap-6">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+            <span>Forged by</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 font-bold drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">soul-less-king</span>
           </div>
-          <h3 className="text-2xl md:text-3xl font-bold mb-4">
-            Built on <span className="text-gradient">16 Academic Papers</span>
-          </h3>
-          <p className="text-[var(--foreground-muted)] mb-6">
-            DataLeash incorporates cutting-edge research in cryptography, trusted execution environments,
-            blockchain audit trails, and secure data deletion from leading academic institutions.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 text-xs">
-            {['Intel SGX Enclaves', 'CP-ABE Encryption', 'Vanish Protocol', 'Blockchain Audit', 'Homomorphic Auth'].map((paper, i) => (
-              <span key={i} className="px-3 py-1.5 rounded-full bg-white/5 text-[var(--foreground-muted)] border border-white/10">
-                {paper}
+
+          <div className="flex items-center gap-6">
+            {/* 3D Button Style */}
+            <a href="https://github.com/soul-less-king" target="_blank" className="group relative w-10 h-10 perspective-1000" title="GitHub">
+              <div className="absolute inset-0 bg-slate-800 rounded-xl transform rotate-x-12 translate-y-1 transition-transform group-hover:translate-y-2 group-hover:rotate-x-0 shadow-[0_5px_0_rgb(15,23,42),0_10px_10px_rgba(0,0,0,0.5)]"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl flex items-center justify-center border-t border-slate-600 transform group-hover:translate-y-1 transition-transform z-10">
+                <Github className="w-5 h-5 text-slate-300 group-hover:text-white" />
+              </div>
+            </a>
+
+            <a href="https://www.linkedin.com/in/hadi-sleiman-92781825b/" target="_blank" className="group relative w-10 h-10 perspective-1000" title="LinkedIn">
+              <div className="absolute inset-0 bg-blue-900/50 rounded-xl transform rotate-x-12 translate-y-1 transition-transform group-hover:translate-y-2 group-hover:rotate-x-0 shadow-[0_5px_0_rgb(30,58,138),0_10px_10px_rgba(0,0,0,0.5)]"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-blue-900/40 rounded-xl flex items-center justify-center border-t border-blue-500/30 transform group-hover:translate-y-1 transition-transform z-10 backdrop-blur-md">
+                <Linkedin className="w-5 h-5 text-blue-400 group-hover:text-blue-100" />
+              </div>
+            </a>
+
+            <button
+              onClick={handleCopyDiscord}
+              className="relative group cursor-pointer w-10 h-10 perspective-1000 border-none outline-none appearance-none p-0"
+            >
+              <div className="absolute inset-0 bg-indigo-900/50 rounded-xl transform rotate-x-12 translate-y-1 transition-transform group-hover:translate-y-2 group-hover:rotate-x-0 shadow-[0_5px_0_rgb(49,46,129),0_10px_10px_rgba(0,0,0,0.5)]"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 to-indigo-900/40 rounded-xl flex items-center justify-center border-t border-indigo-500/30 transform group-hover:translate-y-1 transition-transform z-10 backdrop-blur-md">
+                {discordCopied ? <Check className="w-5 h-5 text-emerald-400" /> : <MessageCircle className="w-5 h-5 text-indigo-400 group-hover:text-indigo-100" />}
+              </div>
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 px-3 py-1 text-xs font-mono bg-indigo-900 text-indigo-200 border border-indigo-500/30 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none shadow-[0_0_15px_rgba(99,102,241,0.5)] z-20">
+                {discordCopied ? <span className="text-emerald-400 font-bold">COPIED!</span> : <>ashenone616 <span className="text-indigo-400 text-[10px] ml-1">(Click to Copy)</span></>}
               </span>
-            ))}
-          </div>
-        </div>
-      </section>
+            </button>
 
-      {/* FAQ Section */}
-      <section id="faq" className="py-20 px-6 relative">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              <span className="text-gradient">Questions?</span>
-            </h2>
-            <p className="text-[var(--foreground-muted)]">
-              Everything you need to know about DataLeash security.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {faqData.map((faq, i) => (
-              <FAQItem
-                key={i}
-                question={faq.question}
-                answer={faq.answer}
-                isOpen={openFAQ === i}
-                onClick={() => setOpenFAQ(openFAQ === i ? null : i)}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-6 relative">
-        <div className="max-w-4xl mx-auto">
-          <div className="glass-card p-12 text-center relative overflow-hidden border border-[var(--primary)]/20">
-            {/* Background glow */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[var(--primary)]/10 via-transparent to-[var(--primary)]/10" />
-
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 relative z-10">
-              Ready to Take Control?
-            </h2>
-            <p className="text-[var(--foreground-muted)] mb-8 max-w-xl mx-auto relative z-10">
-              Start protecting your sensitive files today. No credit card required.
-            </p>
-            <Link
-              href="/signup"
-              className="glow-button px-10 py-4 rounded-full text-black font-bold text-lg hover:scale-105 transition-transform inline-flex items-center gap-2 relative z-10"
-            >
-              <Shield className="w-5 h-5" />
-              Get Started Free
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer / Contact Section */}
-      <footer className="py-16 px-6 border-t border-[rgba(0,212,255,0.1)] bg-gradient-to-b from-transparent to-[rgba(0,0,0,0.5)]">
-        <div className="max-w-6xl mx-auto">
-          {/* Social Links */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-            {/* GitHub - Primary */}
-            <a
-              href="https://github.com/soul-less-king"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="glass-card px-6 py-6 rounded-xl flex flex-col items-center gap-3 hover:bg-white/10 hover:border-white/30 transition group md:col-span-2"
-            >
-              <Github className="w-10 h-10 group-hover:scale-110 transition-transform" />
-              <div className="text-center">
-                <div className="text-xs text-[var(--foreground-muted)] mb-1">Open Source on</div>
-                <div className="text-xl font-bold">GitHub</div>
-                <div className="text-sm text-[var(--primary)]">@soul-less-king</div>
+            <a href="https://www.paypal.com/paypalme/xhadiii" target="_blank" className="group relative w-10 h-10 perspective-1000" title="PayPal">
+              <div className="absolute inset-0 bg-[#003087]/50 rounded-xl transform rotate-x-12 translate-y-1 transition-transform group-hover:translate-y-2 group-hover:rotate-x-0 shadow-[0_5px_0_rgb(0,48,135),0_10px_10px_rgba(0,0,0,0.5)]"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-[#003087]/20 to-[#009cde]/40 rounded-xl flex items-center justify-center border-t border-[#009cde]/30 transform group-hover:translate-y-1 transition-transform z-10 backdrop-blur-md">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current text-[#009cde] group-hover:text-white transition-colors" role="img" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 0.467 4.214-.407 0.873-.996 1.638-1.748 2.257-2.73 2.24-6.726 2.05-6.726 2.05l-0.544 1.93-0.544 2.89H11.5c0.528 0 0.902 0.354 0.767 0.86l-0.644 2.14c-0.12 0.47-0.58 0.77-1.07 0.77H7.714a.641.641 0 0 1-.638-.76l0.203-0.78z" />
+                </svg>
               </div>
             </a>
-
-            {/* Discord */}
-            <a
-              href="https://discord.com/users/ashenone616"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="glass-card px-6 py-6 rounded-xl flex flex-col items-center gap-3 hover:bg-[#5865F2]/20 hover:border-[#5865F2]/50 transition group"
-            >
-              <MessageCircle className="w-8 h-8 text-[#5865F2] group-hover:scale-110 transition-transform" />
-              <div className="text-center">
-                <div className="text-xs text-[var(--foreground-muted)] mb-1">Chat on</div>
-                <div className="font-bold">Discord</div>
-              </div>
-            </a>
-
-            {/* LinkedIn */}
-            <a
-              href="https://www.linkedin.com/in/hadi-sleiman-92781825b/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="glass-card px-6 py-6 rounded-xl flex flex-col items-center gap-3 hover:bg-[#0077b5]/20 hover:border-[#0077b5]/50 transition group"
-            >
-              <Linkedin className="w-8 h-8 text-[#0077b5] group-hover:scale-110 transition-transform" />
-              <div className="text-center">
-                <div className="text-xs text-[var(--foreground-muted)] mb-1">Connect on</div>
-                <div className="font-bold">LinkedIn</div>
-              </div>
-            </a>
-          </div>
-
-          {/* Bottom Bar */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-white/10">
-            <div className="flex items-center gap-3">
-              <DataLeashLogo size={28} />
-              <span className="font-semibold text-gradient">DataLeash</span>
-            </div>
-            <div className="text-[var(--foreground-muted)] text-sm flex items-center gap-1">
-              Made with <Heart className="w-4 h-4 text-red-500 inline" /> in 2026
-            </div>
-            <div className="flex items-center gap-6 text-sm text-[var(--foreground-muted)]">
-              <Link href="/terms" className="hover:text-white transition">Terms</Link>
-              <Link href="/privacy" className="hover:text-white transition">Privacy</Link>
-            </div>
           </div>
         </div>
       </footer>
+      <AIChatbot />
     </div>
   );
 }

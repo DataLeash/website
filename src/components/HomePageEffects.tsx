@@ -72,46 +72,118 @@ function HomeMatrixRain() {
     )
 }
 
-// Floating particles with CSS-only animation (no JS state updates)
-function FloatingParticles() {
-    const particles = useMemo(() => {
-        const texts = ['🔐', '🛡️', '⬡', '◊', '●']
-        return [...Array(12)].map((_, i) => ({
-            left: `${10 + (i * 8) % 80}%`,
-            top: `${15 + (i * 13) % 70}%`,
-            delay: `${i * 0.5}s`,
-            duration: `${15 + (i % 5) * 3}s`,
-            text: texts[i % texts.length],
-            size: `${0.8 + (i % 3) * 0.3}rem`
-        }))
+// Interactive particle swarm that reacts to mouse
+function InteractiveSwarm() {
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+
+    useEffect(() => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+
+        canvas.width = window.innerWidth
+        canvas.height = window.innerHeight
+
+        const particles: {
+            x: number,
+            y: number,
+            vx: number,
+            vy: number,
+            size: number,
+            color: string,
+            char: string,
+            changeTimer: number
+        }[] = []
+
+        const colors = ['#ffffff', '#00d4ff', '#0099ff'] // White and Tech Blue
+        const chars = '0123456789ABCDEF' // Hex characters
+
+        for (let i = 0; i < 90; i++) { // Increased count for dense data feel
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 0.03, // Barely moving
+                vy: (Math.random() - 0.5) * 0.03,
+                size: Math.random() * 14 + 10,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                char: chars[Math.floor(Math.random() * chars.length)],
+                changeTimer: Math.floor(Math.random() * 20)
+            })
+        }
+
+        let mouseX = -1000
+        let mouseY = -1000
+
+        const handleMouseMove = (e: MouseEvent) => {
+            mouseX = e.clientX
+            mouseY = e.clientY
+        }
+
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            ctx.font = 'bold 16px monospace' // Common font setting
+
+            particles.forEach(p => {
+                // Basic movement
+                p.x += p.vx
+                p.y += p.vy
+
+                // Bounce off walls
+                if (p.x < 0 || p.x > canvas.width) p.vx *= -1
+                if (p.y < 0 || p.y > canvas.height) p.vy *= -1
+
+                // Mouse Interaction (Magnet)
+                const dx = mouseX - p.x
+                const dy = mouseY - p.y
+                const dist = Math.sqrt(dx * dx + dy * dy)
+
+                if (dist < 300) {
+                    p.vx += dx * 0.00005 // Barely affected by mouse
+                    p.vy += dy * 0.00005
+                }
+
+                // Friction cap
+                const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
+                if (speed > 0.2) { // Minimal speed cap
+                    p.vx *= 0.95
+                    p.vy *= 0.95
+                }
+
+                // Character Flicker Logic
+                p.changeTimer--
+                if (p.changeTimer <= 0) {
+                    p.char = chars[Math.floor(Math.random() * chars.length)]
+                    p.changeTimer = Math.floor(Math.random() * 10 + 5) // Flickr every 5-15 frames
+
+                    // Occasional color shift
+                    if (Math.random() > 0.9) {
+                        p.color = colors[Math.floor(Math.random() * colors.length)]
+                    }
+                }
+
+                // Draw Character
+                ctx.font = `bold ${p.size}px monospace`
+                ctx.fillStyle = p.color
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.fillText(p.char, p.x, p.y)
+                ctx.shadowBlur = 0; // Reset
+            })
+
+            requestAnimationFrame(animate)
+        }
+
+        const animationId = requestAnimationFrame(animate)
+        window.addEventListener('mousemove', handleMouseMove)
+
+        return () => {
+            cancelAnimationFrame(animationId)
+            window.removeEventListener('mousemove', handleMouseMove)
+        }
     }, [])
 
-    return (
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-            {particles.map((p, i) => (
-                <div
-                    key={i}
-                    className="absolute text-[var(--primary)] font-mono"
-                    style={{
-                        left: p.left,
-                        top: p.top,
-                        fontSize: p.size,
-                        opacity: 0.08,
-                        animation: `float ${p.duration} ease-in-out infinite`,
-                        animationDelay: p.delay
-                    }}
-                >
-                    {p.text}
-                </div>
-            ))}
-            <style jsx>{`
-                @keyframes float {
-                    0%, 100% { transform: translateY(0) rotate(0deg); }
-                    50% { transform: translateY(-30px) rotate(10deg); }
-                }
-            `}</style>
-        </div>
-    )
+    return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0 opacity-80" />
 }
 
 // Glowing orbs - CSS only
@@ -217,7 +289,7 @@ export function HomePageEffects() {
             <GridOverlay />
             <GlowingOrbs />
             <HomeMatrixRain />
-            <FloatingParticles />
+            <InteractiveSwarm />
             <ScanBeam />
         </>
     )
