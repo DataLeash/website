@@ -345,7 +345,7 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
                     mat.opacity -= 0.02
                     if (mat.opacity <= 0) {
                         scene.remove(obj)
-                            ; (obj.geometry as THREE.RingGeometry).dispose()
+                            ; ((obj as THREE.Mesh).geometry as THREE.RingGeometry).dispose()
                         mat.dispose()
                     }
                 }
