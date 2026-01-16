@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DataLeashLogoCompact } from "./DataLeashLogo";
 import { useNotifications, useAuth } from "@/lib/hooks";
+import { TierBadge, ProBadge } from "./TierBadge";
 import {
     LayoutDashboard, FolderLock, Upload, KeyRound, Activity,
     Users, Bell, BarChart3, Ban, Eye, FileText, Settings,
@@ -33,13 +34,13 @@ export function Sidebar({ showLogout = true }: SidebarProps) {
         { icon: Users, label: "Contacts", href: "/dashboard/contacts", color: "from-indigo-500 to-purple-600" },
         { icon: Eye, label: "Viewers", href: "/dashboard/viewers", color: "from-cyan-500 to-teal-600" },
         { icon: Bell, label: "Notifications", href: "/dashboard/notifications", badge: unreadCount || undefined, color: "from-yellow-500 to-amber-600" },
-        { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics", color: "from-teal-500 to-cyan-600" },
-        { icon: Shield, label: "Security", href: "/dashboard/security", color: "from-emerald-500 to-green-600" },
-        { icon: Globe, label: "World Map", href: "/dashboard/map", color: "from-blue-500 to-indigo-600" },
-        { icon: Link2, label: "Chain View", href: "/dashboard/chain", color: "from-violet-500 to-purple-600" },
-        { icon: Ban, label: "Blacklist", href: "/dashboard/blacklist", color: "from-red-500 to-rose-600" },
-        { icon: Eye, label: "Leakers", href: "/dashboard/leakers", color: "from-orange-500 to-red-600" },
-        { icon: FileText, label: "Reports", href: "/dashboard/reports", color: "from-sky-500 to-blue-600" },
+        { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics", color: "from-teal-500 to-cyan-600", proOnly: true },
+        { icon: Shield, label: "Security", href: "/dashboard/security", color: "from-emerald-500 to-green-600", proOnly: true },
+        { icon: Globe, label: "World Map", href: "/dashboard/map", color: "from-blue-500 to-indigo-600", proOnly: true },
+        { icon: Link2, label: "Chain View", href: "/dashboard/chain", color: "from-violet-500 to-purple-600", proOnly: true },
+        { icon: Ban, label: "Blacklist", href: "/dashboard/blacklist", color: "from-red-500 to-rose-600", proOnly: true },
+        { icon: Eye, label: "Leakers", href: "/dashboard/leakers", color: "from-orange-500 to-red-600", proOnly: true },
+        { icon: FileText, label: "Reports", href: "/dashboard/reports", color: "from-sky-500 to-blue-600", proOnly: true },
         { icon: Settings, label: "Settings", href: "/dashboard/settings", color: "from-slate-500 to-gray-600" },
     ];
 
@@ -74,9 +75,12 @@ export function Sidebar({ showLogout = true }: SidebarProps) {
                 md:translate-x-0
                 ${isOpen ? 'translate-x-0' : '-translate-x-[120%]'}
             `}>
-                <Link href="/dashboard" className="mb-8" onClick={() => setIsOpen(false)}>
+                <Link href="/dashboard" className="mb-4" onClick={() => setIsOpen(false)}>
                     <DataLeashLogoCompact size={36} />
                 </Link>
+
+                {/* Tier Badge */}
+                <TierBadge className="mb-4" />
 
                 <nav className="flex-1 space-y-1 overflow-y-auto">
                     {navItems.map((item, i) => (
@@ -94,9 +98,10 @@ export function Sidebar({ showLogout = true }: SidebarProps) {
                                 } group-hover:scale-110 transition-transform`}>
                                 <item.icon className={`w-4 h-4 ${isActive(item.href) ? 'text-black' : 'text-white'}`} />
                             </div>
-                            <span className="text-sm">{item.label}</span>
+                            <span className="text-sm flex-1">{item.label}</span>
+                            {item.proOnly && <ProBadge />}
                             {item.badge && (
-                                <span className="ml-auto bg-[var(--error)] text-white text-xs px-2 py-0.5 rounded-full">
+                                <span className="bg-[var(--error)] text-white text-xs px-2 py-0.5 rounded-full">
                                     {item.badge}
                                 </span>
                             )}
