@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Protected routes
-    const protectedPaths = ['/dashboard', '/api/files', '/api/stats', '/api/settings']
+    const protectedPaths = ['/dashboard', '/admin', '/api/files', '/api/stats', '/api/settings']
     const isProtectedPath = protectedPaths.some(path =>
         request.nextUrl.pathname.startsWith(path) &&
         !request.nextUrl.pathname.endsWith('/decrypt') // Allow decrypt to handle its own auth
