@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
                 .eq('owner_id', user.id)
                 .eq('is_destroyed', false)
 
-            const FREE_TIER_FILE_LIMIT = 5
+            const FREE_TIER_FILE_LIMIT = 2
             if ((fileCount || 0) >= FREE_TIER_FILE_LIMIT) {
                 return NextResponse.json(
                     {

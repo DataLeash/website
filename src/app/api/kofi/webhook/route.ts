@@ -113,6 +113,9 @@ export async function POST(request: Request) {
                     provider: 'kofi'
                 });
 
+                // Send Discord webhook notification
+                await sendDiscordNotification(data, user.email, true);
+
                 // Send email notification to admin
                 await sendAdminNotification(data, user.email);
             } else {
@@ -134,6 +137,9 @@ export async function POST(request: Request) {
                     // Table might not exist, that's ok
                     console.log('Note: pending_subscriptions table does not exist');
                 }
+
+                // Send Discord notification for manual review
+                await sendDiscordNotification(data, null, false);
 
                 // Still notify admin
                 await sendAdminNotification(data, null);
@@ -228,5 +234,48 @@ async function sendAdminNotification(data: KofiWebhookData, matchedEmail: string
         console.log('Admin notification email sent');
     } catch (error) {
         console.error('Failed to send admin notification:', error);
+    }
+}
+
+// Send Discord webhook notification
+async function sendDiscordNotification(data: KofiWebhookData, matchedEmail: string | null, autoActivated: boolean) {
+    const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+
+    if (!DISCORD_WEBHOOK_URL) {
+        console.log('No Discord webhook URL - skipping Discord notification');
+        return;
+    }
+
+    const embed = {
+        title: autoActivated ? '✅ New Pro Subscription Activated!' : '⚠️ New Payment (Manual Review)',
+        color: autoActivated ? 0x00FF00 : 0xFFAA00,
+        fields: [
+            { name: '👤 From', value: data.from_name || 'Unknown', inline: true },
+            { name: '📧 Email', value: data.email || 'Not provided', inline: true },
+            { name: '💰 Amount', value: `$${data.amount} ${data.currency}`, inline: true },
+            { name: '🏷️ Tier', value: data.tier_name || 'DataLeash Pro', inline: true },
+            { name: '🔄 Subscription', value: data.is_subscription_payment ? (data.is_first_subscription_payment ? 'Yes (First Payment)' : 'Yes (Renewal)') : 'No', inline: true },
+            { name: '🆔 Transaction', value: data.kofi_transaction_id, inline: true },
+            { name: '✅ Auto-Activated', value: autoActivated ? `Yes (${matchedEmail})` : 'No (User not found)', inline: false },
+        ],
+        footer: { text: 'DataLeash Payment Notification' },
+        timestamp: new Date().toISOString(),
+    };
+
+    if (data.message) {
+        embed.fields.push({ name: '💬 Message', value: data.message, inline: false });
+    }
+
+    try {
+        await fetch(DISCORD_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                embeds: [embed],
+            }),
+        });
+        console.log('Discord notification sent');
+    } catch (error) {
+        console.error('Failed to send Discord notification:', error);
     }
 }
