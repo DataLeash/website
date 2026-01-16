@@ -119,23 +119,26 @@ export async function POST(request: Request) {
                 // User not found - store for manual matching
                 console.log(`⚠️ No user found with email ${email} - payment recorded for manual review`);
 
-                await supabase.from('pending_subscriptions').insert({
-                    email: email,
-                    kofi_transaction_id: data.kofi_transaction_id,
-                    amount: parseFloat(data.amount),
-                    currency: data.currency,
-                    tier_name: data.tier_name,
-                    from_name: data.from_name,
-                    message: data.message,
-                    created_at: new Date().toISOString()
-                }).catch(() => {
+                try {
+                    await supabase.from('pending_subscriptions').insert({
+                        email: email,
+                        kofi_transaction_id: data.kofi_transaction_id,
+                        amount: parseFloat(data.amount),
+                        currency: data.currency,
+                        tier_name: data.tier_name,
+                        from_name: data.from_name,
+                        message: data.message,
+                        created_at: new Date().toISOString()
+                    });
+                } catch {
                     // Table might not exist, that's ok
                     console.log('Note: pending_subscriptions table does not exist');
-                });
+                }
 
                 // Still notify admin
                 await sendAdminNotification(data, null);
             }
+
         }
 
         // Handle one-time donations (optional - treat as tips)
