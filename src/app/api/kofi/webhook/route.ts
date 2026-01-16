@@ -57,6 +57,23 @@ export async function POST(request: Request) {
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+        // ========================================
+        // FRAUD DETECTION: Check for duplicate transactions
+        // ========================================
+        const { data: existingPayment } = await supabase
+            .from('payment_logs')
+            .select('id')
+            .eq('transaction_id', data.kofi_transaction_id)
+            .maybeSingle();
+
+        if (existingPayment) {
+            console.warn(`[FRAUD] Duplicate transaction ID detected: ${data.kofi_transaction_id}`);
+            return NextResponse.json({
+                error: 'Duplicate transaction',
+                message: 'This transaction has already been processed'
+            }, { status: 409 });
+        }
+
         // Handle subscription payments
         if (data.type === 'Subscription' || data.is_subscription_payment) {
             const email = data.email?.toLowerCase();
@@ -69,7 +86,7 @@ export async function POST(request: Request) {
             // Find user by email
             const { data: users, error: userError } = await supabase
                 .from('users')
-                .select('id, email, tier')
+                .select('id, email, tier, tier_expires_at')
                 .ilike('email', email);
 
             if (userError) {
@@ -79,8 +96,10 @@ export async function POST(request: Request) {
             const user = users?.[0];
 
             if (user) {
-                // Calculate subscription expiry (30 days from now)
-                const expiresAt = new Date();
+                // Calculate subscription expiry (extend if already pro, otherwise 30 days from now)
+                const currentExpiry = user.tier_expires_at ? new Date(user.tier_expires_at) : new Date();
+                const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+                const expiresAt = new Date(baseDate);
                 expiresAt.setDate(expiresAt.getDate() + 30);
 
                 // Upgrade user to Pro
@@ -93,16 +112,40 @@ export async function POST(request: Request) {
                             : undefined,
                         tier_expires_at: expiresAt.toISOString(),
                         kofi_subscription_id: data.kofi_transaction_id,
+                        kofi_email: email,
+                        payment_source: 'kofi'
                     })
                     .eq('id', user.id);
 
                 if (updateError) {
                     console.error('Error upgrading user:', updateError);
                 } else {
-                    console.log(`✅ User ${email} upgraded to Pro via Ko-fi subscription`);
+                    console.log(`✅ User ${email} upgraded to Pro via Ko-fi subscription (expires: ${expiresAt.toISOString()})`);
                 }
 
-                // Record payment
+                // ========================================
+                // LOG PAYMENT FOR AUDIT TRAIL
+                // ========================================
+                const { error: logError } = await supabase.from('payment_logs').insert({
+                    user_id: user.id,
+                    user_email: user.email,
+                    amount: parseFloat(data.amount),
+                    currency: data.currency,
+                    payment_source: 'kofi',
+                    transaction_id: data.kofi_transaction_id,
+                    is_subscription: true,
+                    is_first_payment: data.is_first_subscription_payment,
+                    tier_name: data.tier_name,
+                    status: 'completed',
+                    tier_granted: 'pro',
+                    tier_duration_days: 30,
+                    tier_expires_at: expiresAt.toISOString(),
+                    auto_activated: true,
+                    raw_webhook_data: data
+                });
+                if (logError) console.error('Failed to log payment:', logError);
+
+                // Legacy payments table (for backward compatibility)
                 await supabase.from('payments').insert({
                     user_id: user.id,
                     stripe_subscription_id: data.kofi_transaction_id,
@@ -112,6 +155,7 @@ export async function POST(request: Request) {
                     status: 'completed',
                     provider: 'kofi'
                 });
+
 
                 // Send Discord webhook notification
                 await sendDiscordNotification(data, user.email, true);
