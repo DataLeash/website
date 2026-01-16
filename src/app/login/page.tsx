@@ -1,9 +1,9 @@
 'use client'
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useAuth } from "@/lib/hooks";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DataLeashLogo } from "@/components/DataLeashLogo";
 import { Icon3D } from "@/components/Icon3D";
 import { createClient } from "@/lib/supabase-browser";
@@ -153,13 +153,25 @@ function TypingText({ text, className = '' }: { text: string; className?: string
     );
 }
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { signIn } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState('');
+
+    // Get redirect URL from query params
+    const redirectUrl = searchParams.get('redirect') || '/dashboard';
+    const infoMessage = searchParams.get('message');
+
+    useEffect(() => {
+        if (infoMessage) {
+            setMessage(infoMessage);
+        }
+    }, [infoMessage]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -172,7 +184,7 @@ export default function LoginPage() {
             if (result.error) {
                 setError(result.error);
             } else {
-                router.push('/dashboard');
+                router.push(redirectUrl);
             }
         } catch (err) {
             setError('An unexpected error occurred');
@@ -186,7 +198,7 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/dashboard`,
+                redirectTo: `${window.location.origin}${redirectUrl}`,
             },
         });
         if (error) {
@@ -199,7 +211,7 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'github',
             options: {
-                redirectTo: `${window.location.origin}/dashboard`,
+                redirectTo: `${window.location.origin}${redirectUrl}`,
             },
         });
         if (error) {
@@ -212,7 +224,7 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'discord',
             options: {
-                redirectTo: `${window.location.origin}/dashboard`,
+                redirectTo: `${window.location.origin}${redirectUrl}`,
             },
         });
         if (error) {
@@ -256,6 +268,13 @@ export default function LoginPage() {
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(0,212,255,0.1)] to-transparent animate-shimmer" />
 
                     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 relative z-10">
+                        {message && (
+                            <div className="bg-[rgba(0,212,255,0.1)] border border-[var(--primary)] text-[var(--primary)] px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                                <span>ℹ️</span>
+                                {message}
+                            </div>
+                        )}
+
                         {error && (
                             <div className="bg-[rgba(239,68,68,0.1)] border border-[var(--error)] text-[var(--error)] px-4 py-3 rounded-lg text-sm flex items-center gap-2 animate-shake">
                                 <Icon3D type="danger" size="sm" />
@@ -379,5 +398,18 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+// Wrapper with Suspense for useSearchParams
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-[#0a1628]">
+                <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }
