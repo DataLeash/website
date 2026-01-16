@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Sidebar } from '@/components/Sidebar'
+import { RequirePro } from '@/components/RequirePro'
 import {
     Link2, Monitor, Smartphone, Tablet, MapPin, Clock,
     ChevronDown, ChevronRight, Eye, AlertTriangle, Globe,
@@ -179,7 +180,7 @@ export default function ChainViewPage() {
 
                 <div
                     className={`relative glass-card p-4 mb-3 transition-all ${node.isBlocked ? 'border-l-4 border-red-500' :
-                            node.isActive ? 'border-l-4 border-green-500 shadow-[0_0_15px_rgba(0,255,100,0.2)]' : ''
+                        node.isActive ? 'border-l-4 border-green-500 shadow-[0_0_15px_rgba(0,255,100,0.2)]' : ''
                         }`}
                     style={{ marginLeft: `${depth * 2}rem` }}
                 >
@@ -202,8 +203,8 @@ export default function ChainViewPage() {
 
                         {/* Device icon with status indicator */}
                         <div className={`relative w-10 h-10 rounded-lg flex items-center justify-center ${node.isBlocked ? 'bg-red-500/20' :
-                                node.isActive ? 'bg-green-500/20' :
-                                    'bg-gradient-to-br from-cyan-500/20 to-blue-600/20'
+                            node.isActive ? 'bg-green-500/20' :
+                                'bg-gradient-to-br from-cyan-500/20 to-blue-600/20'
                             }`}>
                             {node.isBlocked ? (
                                 <AlertTriangle className="w-5 h-5 text-red-500" />
@@ -306,145 +307,147 @@ export default function ChainViewPage() {
     const selectedChain = chains.find(c => c.fileId === selectedFile)
 
     return (
-        <div className="gradient-bg min-h-screen">
-            <Sidebar />
+        <RequirePro feature="Chain View">
+            <div className="gradient-bg min-h-screen">
+                <Sidebar />
 
-            <main className="ml-72 p-8">
-                {/* Header */}
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
-                                <Link2 className="w-5 h-5 text-white" />
-                            </div>
-                            Chain View
-                        </h1>
-                        <p className="text-[var(--foreground-muted)]">Track how your files spread • Auto-refreshes every 30s</p>
-                    </div>
-                    <button
-                        onClick={() => fetchChains()}
-                        className="px-4 py-2 bg-[rgba(0,212,255,0.1)] hover:bg-[rgba(0,212,255,0.2)] rounded-lg flex items-center gap-2 transition"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                        Refresh
-                    </button>
-                </div>
-
-                {loading && chains.length === 0 ? (
-                    <div className="flex items-center justify-center h-64">
-                        <div className="w-10 h-10 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                ) : chains.length === 0 ? (
-                    <div className="glass-card p-12 text-center">
-                        <Link2 className="w-16 h-16 mx-auto mb-4 text-[var(--primary)] opacity-50" />
-                        <h3 className="text-xl font-bold mb-2">No Access Chains Yet</h3>
-                        <p className="text-[var(--foreground-muted)]">
-                            When viewers access your files, the chain will appear here
-                        </p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-4 gap-6">
-                        {/* File list */}
-                        <div className="glass-card p-4">
-                            <h3 className="font-bold mb-4">Files</h3>
-                            <div className="space-y-2">
-                                {chains.map((chain) => (
-                                    <button
-                                        key={chain.fileId}
-                                        onClick={() => setSelectedFile(chain.fileId)}
-                                        className={`w-full text-left p-3 rounded-lg transition ${selectedFile === chain.fileId
-                                            ? 'bg-[var(--primary)] text-black'
-                                            : 'hover:bg-[rgba(0,212,255,0.1)]'
-                                            }`}
-                                    >
-                                        <div className="font-medium truncate">{chain.fileName}</div>
-                                        <div className="text-xs opacity-70 flex items-center gap-2">
-                                            <span>{chain.totalViews} views</span>
-                                            <span>•</span>
-                                            <span>{chain.uniqueViewers} viewers</span>
-                                            {chain.activeViewers > 0 && (
-                                                <>
-                                                    <span>•</span>
-                                                    <span className="text-green-400 flex items-center gap-1">
-                                                        <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                                                        {chain.activeViewers} live
-                                                    </span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Chain visualization */}
-                        <div className="col-span-3">
-                            {selectedChain ? (
-                                <>
-                                    {/* Chain stats */}
-                                    <div className="grid grid-cols-4 gap-4 mb-6">
-                                        <div className="glass-card p-4 flex items-center gap-3">
-                                            <Eye className="w-8 h-8 text-[var(--primary)]" />
-                                            <div>
-                                                <div className="text-2xl font-bold">{selectedChain.totalViews}</div>
-                                                <div className="text-xs text-[var(--foreground-muted)]">Total Views</div>
-                                            </div>
-                                        </div>
-                                        <div className="glass-card p-4 flex items-center gap-3">
-                                            <Globe className="w-8 h-8 text-cyan-500" />
-                                            <div>
-                                                <div className="text-2xl font-bold">{selectedChain.uniqueViewers}</div>
-                                                <div className="text-xs text-[var(--foreground-muted)]">Unique Viewers</div>
-                                            </div>
-                                        </div>
-                                        <div className="glass-card p-4 flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                                                <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse" />
-                                            </div>
-                                            <div>
-                                                <div className="text-2xl font-bold text-green-400">{selectedChain.activeViewers}</div>
-                                                <div className="text-xs text-[var(--foreground-muted)]">Active Now</div>
-                                            </div>
-                                        </div>
-                                        <div className="glass-card p-4 flex items-center gap-3">
-                                            <Link2 className="w-8 h-8 text-purple-500" />
-                                            <div>
-                                                <div className="text-2xl font-bold">{selectedChain.chain.length}</div>
-                                                <div className="text-xs text-[var(--foreground-muted)]">Access Records</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Legend */}
-                                    <div className="flex items-center gap-6 mb-4 text-xs text-[var(--foreground-muted)]">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                                            <span>Active Viewer</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 bg-cyan-500 rounded-full" />
-                                            <span>Historical</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 bg-red-500 rounded-full" />
-                                            <span>Blocked</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Chain tree */}
-                                    <div className="space-y-2">
-                                        {selectedChain.chain.map((node) => renderChainNode(node, 0, selectedChain.fileId))}
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="glass-card p-12 text-center">
-                                    <p className="text-[var(--foreground-muted)]">Select a file to view its access chain</p>
+                <main className="ml-72 p-8">
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h1 className="text-3xl font-bold flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                                    <Link2 className="w-5 h-5 text-white" />
                                 </div>
-                            )}
+                                Chain View
+                            </h1>
+                            <p className="text-[var(--foreground-muted)]">Track how your files spread • Auto-refreshes every 30s</p>
                         </div>
+                        <button
+                            onClick={() => fetchChains()}
+                            className="px-4 py-2 bg-[rgba(0,212,255,0.1)] hover:bg-[rgba(0,212,255,0.2)] rounded-lg flex items-center gap-2 transition"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </button>
                     </div>
-                )}
-            </main>
-        </div>
+
+                    {loading && chains.length === 0 ? (
+                        <div className="flex items-center justify-center h-64">
+                            <div className="w-10 h-10 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    ) : chains.length === 0 ? (
+                        <div className="glass-card p-12 text-center">
+                            <Link2 className="w-16 h-16 mx-auto mb-4 text-[var(--primary)] opacity-50" />
+                            <h3 className="text-xl font-bold mb-2">No Access Chains Yet</h3>
+                            <p className="text-[var(--foreground-muted)]">
+                                When viewers access your files, the chain will appear here
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-4 gap-6">
+                            {/* File list */}
+                            <div className="glass-card p-4">
+                                <h3 className="font-bold mb-4">Files</h3>
+                                <div className="space-y-2">
+                                    {chains.map((chain) => (
+                                        <button
+                                            key={chain.fileId}
+                                            onClick={() => setSelectedFile(chain.fileId)}
+                                            className={`w-full text-left p-3 rounded-lg transition ${selectedFile === chain.fileId
+                                                ? 'bg-[var(--primary)] text-black'
+                                                : 'hover:bg-[rgba(0,212,255,0.1)]'
+                                                }`}
+                                        >
+                                            <div className="font-medium truncate">{chain.fileName}</div>
+                                            <div className="text-xs opacity-70 flex items-center gap-2">
+                                                <span>{chain.totalViews} views</span>
+                                                <span>•</span>
+                                                <span>{chain.uniqueViewers} viewers</span>
+                                                {chain.activeViewers > 0 && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-green-400 flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                                                            {chain.activeViewers} live
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Chain visualization */}
+                            <div className="col-span-3">
+                                {selectedChain ? (
+                                    <>
+                                        {/* Chain stats */}
+                                        <div className="grid grid-cols-4 gap-4 mb-6">
+                                            <div className="glass-card p-4 flex items-center gap-3">
+                                                <Eye className="w-8 h-8 text-[var(--primary)]" />
+                                                <div>
+                                                    <div className="text-2xl font-bold">{selectedChain.totalViews}</div>
+                                                    <div className="text-xs text-[var(--foreground-muted)]">Total Views</div>
+                                                </div>
+                                            </div>
+                                            <div className="glass-card p-4 flex items-center gap-3">
+                                                <Globe className="w-8 h-8 text-cyan-500" />
+                                                <div>
+                                                    <div className="text-2xl font-bold">{selectedChain.uniqueViewers}</div>
+                                                    <div className="text-xs text-[var(--foreground-muted)]">Unique Viewers</div>
+                                                </div>
+                                            </div>
+                                            <div className="glass-card p-4 flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                                                    <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-2xl font-bold text-green-400">{selectedChain.activeViewers}</div>
+                                                    <div className="text-xs text-[var(--foreground-muted)]">Active Now</div>
+                                                </div>
+                                            </div>
+                                            <div className="glass-card p-4 flex items-center gap-3">
+                                                <Link2 className="w-8 h-8 text-purple-500" />
+                                                <div>
+                                                    <div className="text-2xl font-bold">{selectedChain.chain.length}</div>
+                                                    <div className="text-xs text-[var(--foreground-muted)]">Access Records</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Legend */}
+                                        <div className="flex items-center gap-6 mb-4 text-xs text-[var(--foreground-muted)]">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                                                <span>Active Viewer</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 bg-cyan-500 rounded-full" />
+                                                <span>Historical</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 bg-red-500 rounded-full" />
+                                                <span>Blocked</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Chain tree */}
+                                        <div className="space-y-2">
+                                            {selectedChain.chain.map((node) => renderChainNode(node, 0, selectedChain.fileId))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="glass-card p-12 text-center">
+                                        <p className="text-[var(--foreground-muted)]">Select a file to view its access chain</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </main>
+            </div>
+        </RequirePro>
     )
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useStats, useAuth } from "@/lib/hooks";
 import { Sidebar } from "@/components/Sidebar";
+import { RequirePro } from "@/components/RequirePro";
 import {
     Shield, AlertTriangle, CheckCircle, XCircle, Eye,
     Lock, Globe, Clock, TrendingUp, RefreshCw
@@ -135,187 +136,189 @@ export default function SecurityPage() {
     };
 
     return (
-        <div className="gradient-bg min-h-screen">
-            <Sidebar />
+        <RequirePro feature="Security Dashboard">
+            <div className="gradient-bg min-h-screen">
+                <Sidebar />
 
-            <main className="md:ml-72 ml-0 p-4 md:p-8">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
-                        <Shield className="w-5 h-5 text-white" />
+                <main className="md:ml-72 ml-0 p-4 md:p-8">
+                    {/* Header */}
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                            <Shield className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-bold">Security Dashboard</h1>
+                            <p className="text-sm text-[var(--foreground-muted)]">Monitor and improve your security posture</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold">Security Dashboard</h1>
-                        <p className="text-sm text-[var(--foreground-muted)]">Monitor and improve your security posture</p>
-                    </div>
-                </div>
 
-                {/* Security Score Card */}
-                <div className="glass-card p-6 mb-6">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                        <div className="flex items-center gap-6">
-                            {/* Score Circle */}
-                            <div className="relative w-28 h-28">
-                                <svg className="w-full h-full transform -rotate-90">
-                                    <circle
-                                        cx="56"
-                                        cy="56"
-                                        r="48"
-                                        stroke="rgba(255,255,255,0.1)"
-                                        strokeWidth="8"
-                                        fill="none"
-                                    />
-                                    <circle
-                                        cx="56"
-                                        cy="56"
-                                        r="48"
-                                        stroke="currentColor"
-                                        strokeWidth="8"
-                                        fill="none"
-                                        strokeLinecap="round"
-                                        className={getScoreColor()}
-                                        strokeDasharray={`${(securityScore / 100) * 301.6} 301.6`}
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className={`text-3xl font-bold ${getScoreColor()}`}>{securityScore}</span>
+                    {/* Security Score Card */}
+                    <div className="glass-card p-6 mb-6">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                            <div className="flex items-center gap-6">
+                                {/* Score Circle */}
+                                <div className="relative w-28 h-28">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        <circle
+                                            cx="56"
+                                            cy="56"
+                                            r="48"
+                                            stroke="rgba(255,255,255,0.1)"
+                                            strokeWidth="8"
+                                            fill="none"
+                                        />
+                                        <circle
+                                            cx="56"
+                                            cy="56"
+                                            r="48"
+                                            stroke="currentColor"
+                                            strokeWidth="8"
+                                            fill="none"
+                                            strokeLinecap="round"
+                                            className={getScoreColor()}
+                                            strokeDasharray={`${(securityScore / 100) * 301.6} 301.6`}
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className={`text-3xl font-bold ${getScoreColor()}`}>{securityScore}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold">Security Score</h2>
+                                    <p className="text-[var(--foreground-muted)]">
+                                        {securityScore >= 80 ? 'Excellent protection' :
+                                            securityScore >= 60 ? 'Good, but can improve' : 'Needs attention'}
+                                    </p>
                                 </div>
                             </div>
-                            <div>
-                                <h2 className="text-xl font-bold">Security Score</h2>
-                                <p className="text-[var(--foreground-muted)]">
-                                    {securityScore >= 80 ? 'Excellent protection' :
-                                        securityScore >= 60 ? 'Good, but can improve' : 'Needs attention'}
-                                </p>
-                            </div>
-                        </div>
 
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="text-center">
-                                <div className="text-2xl font-bold text-emerald-400">{stats.totalFiles}</div>
-                                <div className="text-xs text-[var(--foreground-muted)]">Protected Files</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-2xl font-bold text-[var(--primary)]">{stats.activeShares}</div>
-                                <div className="text-xs text-[var(--foreground-muted)]">Active Shares</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-2xl font-bold text-red-400">{stats.threatsBlocked}</div>
-                                <div className="text-xs text-[var(--foreground-muted)]">Threats Blocked</div>
+                            {/* Quick Stats */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-emerald-400">{stats.totalFiles}</div>
+                                    <div className="text-xs text-[var(--foreground-muted)]">Protected Files</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-[var(--primary)]">{stats.activeShares}</div>
+                                    <div className="text-xs text-[var(--foreground-muted)]">Active Shares</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-red-400">{stats.threatsBlocked}</div>
+                                    <div className="text-xs text-[var(--foreground-muted)]">Threats Blocked</div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="grid md:grid-cols-2 gap-6 mb-6">
-                    {/* Recommendations */}
-                    <div className="glass-card p-6">
-                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-[var(--primary)]" />
-                            Recommendations
-                        </h2>
-                        <div className="space-y-3">
-                            {recommendations.map((rec, i) => (
-                                <a
-                                    key={i}
-                                    href={rec.link}
-                                    className="block p-3 rounded-lg bg-[rgba(0,212,255,0.05)] hover:bg-[rgba(0,212,255,0.1)] transition"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <p className="font-medium">{rec.title}</p>
-                                            <p className="text-sm text-[var(--foreground-muted)]">{rec.description}</p>
+                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                        {/* Recommendations */}
+                        <div className="glass-card p-6">
+                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-[var(--primary)]" />
+                                Recommendations
+                            </h2>
+                            <div className="space-y-3">
+                                {recommendations.map((rec, i) => (
+                                    <a
+                                        key={i}
+                                        href={rec.link}
+                                        className="block p-3 rounded-lg bg-[rgba(0,212,255,0.05)] hover:bg-[rgba(0,212,255,0.1)] transition"
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <p className="font-medium">{rec.title}</p>
+                                                <p className="text-sm text-[var(--foreground-muted)]">{rec.description}</p>
+                                            </div>
+                                            <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-400 rounded">
+                                                {rec.impact}
+                                            </span>
                                         </div>
-                                        <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-400 rounded">
-                                            {rec.impact}
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Protection Status */}
+                        <div className="glass-card p-6">
+                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <Lock className="w-5 h-5 text-[var(--primary)]" />
+                                Protection Status
+                            </h2>
+                            <div className="space-y-3">
+                                {[
+                                    { label: 'AES-256 Encryption', status: true },
+                                    { label: 'Session Monitoring', status: true },
+                                    { label: 'Screenshot Protection', status: true },
+                                    { label: 'Country Blocking', status: true },
+                                    { label: 'Two-Factor Auth', status: securityScore >= 65 },
+                                    { label: 'Auto Kill on Threat', status: true },
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-center justify-between p-2">
+                                        <span>{item.label}</span>
+                                        {item.status ? (
+                                            <CheckCircle className="w-5 h-5 text-emerald-400" />
+                                        ) : (
+                                            <XCircle className="w-5 h-5 text-[var(--foreground-muted)]" />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recent Security Events */}
+                    <div className="glass-card p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-[var(--primary)]" />
+                                Recent Security Events
+                            </h2>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="p-2 hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {loading ? (
+                            <div className="text-center py-8 text-[var(--foreground-muted)]">Loading events...</div>
+                        ) : recentEvents.length === 0 ? (
+                            <div className="text-center py-8">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+                                    <Shield className="w-8 h-8 text-emerald-400" />
+                                </div>
+                                <p className="text-[var(--foreground-muted)]">No security events yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {recentEvents.slice(0, 10).map((event) => (
+                                    <div
+                                        key={event.id}
+                                        className={`flex items-center gap-3 p-3 rounded-lg ${event.type === 'blocked'
+                                            ? 'bg-red-500/10 border border-red-500/20'
+                                            : 'bg-[rgba(0,212,255,0.05)]'
+                                            }`}
+                                    >
+                                        {event.type === 'blocked' ? (
+                                            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                                        ) : (
+                                            <Eye className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm truncate">{event.message}</p>
+                                            <p className="text-xs text-[var(--foreground-muted)]">{event.details}</p>
+                                        </div>
+                                        <span className="text-xs text-[var(--foreground-muted)] flex-shrink-0">
+                                            {formatTime(event.timestamp)}
                                         </span>
                                     </div>
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Protection Status */}
-                    <div className="glass-card p-6">
-                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-[var(--primary)]" />
-                            Protection Status
-                        </h2>
-                        <div className="space-y-3">
-                            {[
-                                { label: 'AES-256 Encryption', status: true },
-                                { label: 'Session Monitoring', status: true },
-                                { label: 'Screenshot Protection', status: true },
-                                { label: 'Country Blocking', status: true },
-                                { label: 'Two-Factor Auth', status: securityScore >= 65 },
-                                { label: 'Auto Kill on Threat', status: true },
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center justify-between p-2">
-                                    <span>{item.label}</span>
-                                    {item.status ? (
-                                        <CheckCircle className="w-5 h-5 text-emerald-400" />
-                                    ) : (
-                                        <XCircle className="w-5 h-5 text-[var(--foreground-muted)]" />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Recent Security Events */}
-                <div className="glass-card p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-bold flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-[var(--primary)]" />
-                            Recent Security Events
-                        </h2>
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="p-2 hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    {loading ? (
-                        <div className="text-center py-8 text-[var(--foreground-muted)]">Loading events...</div>
-                    ) : recentEvents.length === 0 ? (
-                        <div className="text-center py-8">
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
-                                <Shield className="w-8 h-8 text-emerald-400" />
+                                ))}
                             </div>
-                            <p className="text-[var(--foreground-muted)]">No security events yet</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {recentEvents.slice(0, 10).map((event) => (
-                                <div
-                                    key={event.id}
-                                    className={`flex items-center gap-3 p-3 rounded-lg ${event.type === 'blocked'
-                                        ? 'bg-red-500/10 border border-red-500/20'
-                                        : 'bg-[rgba(0,212,255,0.05)]'
-                                        }`}
-                                >
-                                    {event.type === 'blocked' ? (
-                                        <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                                    ) : (
-                                        <Eye className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm truncate">{event.message}</p>
-                                        <p className="text-xs text-[var(--foreground-muted)]">{event.details}</p>
-                                    </div>
-                                    <span className="text-xs text-[var(--foreground-muted)] flex-shrink-0">
-                                        {formatTime(event.timestamp)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </main>
-        </div>
+                        )}
+                    </div>
+                </main>
+            </div>
+        </RequirePro>
     );
 }
