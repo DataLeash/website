@@ -3,34 +3,17 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { DataLeashLogo } from '@/components/DataLeashLogo'
-import { Check, ArrowLeft, Zap, Shield, AlertTriangle, Sparkles } from 'lucide-react'
+import { Check, ArrowLeft, Zap, Shield, AlertTriangle, Sparkles, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import Script from 'next/script'
 
-// Paddle types
-declare global {
-    interface Window {
-        Paddle?: {
-            Environment: {
-                set: (env: string) => void;
-            };
-            Initialize: (config: { token: string }) => void;
-            Checkout: {
-                open: (options: any) => void;
-            };
-        };
-    }
-}
-
 export default function UpgradePage() {
-    const [loading, setLoading] = useState(false)
     const [user, setUser] = useState<any>(null)
-    const [error, setError] = useState('')
-    const [paddleReady, setPaddleReady] = useState(false)
+    const [showKofiWidget, setShowKofiWidget] = useState(false)
 
-    // Paddle configuration
-    const PADDLE_CLIENT_TOKEN = 'live_f00c04a598a1f4ff4ff0860010b'
-    const PADDLE_PRICE_ID = 'pri_01kf2fe80za3t3gmnz1b10q82v'
+    // Ko-fi configuration
+    const KOFI_USERNAME = 'dataleash'
+    const KOFI_URL = `https://ko-fi.com/${KOFI_USERNAME}`
 
     useEffect(() => {
         const getUser = async () => {
@@ -41,50 +24,9 @@ export default function UpgradePage() {
         getUser()
     }, [])
 
-    // Initialize Paddle when script loads
-    const initializePaddle = () => {
-        if (window.Paddle) {
-            window.Paddle.Initialize({
-                token: PADDLE_CLIENT_TOKEN
-            })
-            setPaddleReady(true)
-        }
-    }
-
-    const handleUpgrade = async () => {
-        if (!paddleReady || !window.Paddle) {
-            setError('Payment system loading. Please try again.')
-            return
-        }
-
-        setLoading(true)
-        setError('')
-
-        try {
-            // Open Paddle checkout overlay
-            window.Paddle.Checkout.open({
-                items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-                customer: user?.email ? { email: user.email } : undefined,
-                customData: {
-                    user_id: user?.id || '',
-                    plan_id: 'pro'
-                },
-                settings: {
-                    displayMode: 'overlay',
-                    theme: 'dark',
-                    locale: 'en',
-                    successUrl: `${window.location.origin}/dashboard?upgrade=success`,
-                },
-            })
-
-            // Reset loading after checkout opens
-            setTimeout(() => setLoading(false), 1000)
-
-        } catch (err) {
-            console.error('Checkout error:', err)
-            setError('Failed to open checkout. Please try again.')
-            setLoading(false)
-        }
+    const handleUpgrade = () => {
+        // Open Ko-fi in a new tab
+        window.open(KOFI_URL, '_blank')
     }
 
     const features = [
@@ -98,10 +40,19 @@ export default function UpgradePage() {
 
     return (
         <div className="gradient-bg min-h-screen">
-            {/* Paddle.js Script */}
+            {/* Ko-fi Widget Script */}
             <Script
-                src="https://cdn.paddle.com/paddle/v2/paddle.js"
-                onLoad={initializePaddle}
+                src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"
+                onLoad={() => {
+                    if (typeof window !== 'undefined' && (window as any).kofiWidgetOverlay) {
+                        (window as any).kofiWidgetOverlay.draw(KOFI_USERNAME, {
+                            'type': 'floating-chat',
+                            'floating-chat.donateButton.text': 'Support DataLeash',
+                            'floating-chat.donateButton.background-color': '#3b82f6',
+                            'floating-chat.donateButton.text-color': '#fff'
+                        });
+                    }
+                }}
             />
 
             <header className="p-6 flex justify-between items-center">
@@ -135,7 +86,7 @@ export default function UpgradePage() {
                                 <div className="text-5xl font-bold text-white">
                                     $29<span className="text-lg text-slate-400">/mo</span>
                                 </div>
-                                <p className="text-slate-500 text-sm mt-1">Billed monthly • Cancel anytime</p>
+                                <p className="text-slate-500 text-sm mt-1">Monthly membership • Cancel anytime</p>
                             </div>
                             <div className="px-3 py-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold rounded-full">
                                 MOST POPULAR
@@ -153,39 +104,42 @@ export default function UpgradePage() {
                             ))}
                         </ul>
 
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-center">
-                                {error}
-                            </div>
-                        )}
-
+                        {/* Upgrade Button */}
                         <button
                             onClick={handleUpgrade}
-                            disabled={loading || !paddleReady}
-                            className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 disabled:from-slate-600 disabled:to-slate-600 text-white font-bold text-lg rounded-xl transition-all shadow-lg shadow-cyan-500/25 disabled:shadow-none flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
                         >
-                            {loading ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Opening checkout...
-                                </>
-                            ) : !paddleReady ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Loading payment...
-                                </>
-                            ) : (
-                                <>
-                                    <Zap className="w-5 h-5" />
-                                    Upgrade Now
-                                </>
-                            )}
+                            <span>Subscribe on Ko-fi</span>
+                            <ExternalLink className="w-5 h-5" />
                         </button>
 
                         <p className="text-center text-xs text-slate-500 mt-4">
-                            Secure payment powered by Paddle • 256-bit SSL encryption
+                            Secure payment via Ko-fi • PayPal or Credit Card accepted
                         </p>
+
+                        {/* How it works */}
+                        <div className="mt-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                            <h4 className="text-white font-medium mb-2">How to upgrade:</h4>
+                            <ol className="text-sm text-slate-400 space-y-1">
+                                <li>1. Click the button to visit our Ko-fi page</li>
+                                <li>2. Select the "DataLeash Pro" monthly membership</li>
+                                <li>3. Complete payment via PayPal or Credit Card</li>
+                                <li>4. Email us at <a href="mailto:dataleashowner@gmail.com" className="text-blue-400">dataleashowner@gmail.com</a> with your receipt</li>
+                                <li>5. We&apos;ll upgrade your account within 24 hours!</li>
+                            </ol>
+                        </div>
                     </div>
+                </div>
+
+                {/* Ko-fi Badge */}
+                <div className="flex justify-center gap-6 mb-8">
+                    <a href={KOFI_URL} target="_blank" rel="noopener noreferrer">
+                        <img
+                            src="https://storage.ko-fi.com/cdn/kofi2.png?v=3"
+                            alt="Buy Me a Coffee at ko-fi.com"
+                            className="h-10 hover:opacity-80 transition-opacity"
+                        />
+                    </a>
                 </div>
 
                 {/* Comparison */}
