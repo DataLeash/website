@@ -85,6 +85,11 @@ function InteractiveSwarm() {
         canvas.width = window.innerWidth
         canvas.height = window.innerHeight
 
+        // Detect mobile and reduce particles significantly
+        const isMobile = window.innerWidth < 768
+        const particleCount = isMobile ? 15 : 90 // Much fewer on mobile
+        const particleSize = isMobile ? 8 : 14
+
         const particles: {
             x: number,
             y: number,
@@ -99,13 +104,13 @@ function InteractiveSwarm() {
         const colors = ['#ffffff', '#00d4ff', '#0099ff'] // White and Tech Blue
         const chars = '0123456789ABCDEF' // Hex characters
 
-        for (let i = 0; i < 90; i++) { // Increased count for dense data feel
+        for (let i = 0; i < particleCount; i++) {
             particles.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
                 vx: (Math.random() - 0.5) * 0.03, // Barely moving
                 vy: (Math.random() - 0.5) * 0.03,
-                size: Math.random() * 14 + 10,
+                size: Math.random() * particleSize + (isMobile ? 6 : 10),
                 color: colors[Math.floor(Math.random() * colors.length)],
                 char: chars[Math.floor(Math.random() * chars.length)],
                 changeTimer: Math.floor(Math.random() * 20)

@@ -143,7 +143,25 @@ export async function getIPInfo(ip: string): Promise<IPInfo | null> {
     }
 }
 
-function calculateRiskScore(data: any): number {
+// Type for IP-API response
+interface IpApiResponse {
+    status?: string
+    city?: string
+    regionName?: string
+    region?: string
+    country?: string
+    countryCode?: string
+    isp?: string
+    org?: string
+    as?: string
+    timezone?: string
+    lat?: number
+    lon?: number
+    proxy?: boolean
+    hosting?: boolean
+}
+
+function calculateRiskScore(data: IpApiResponse): number {
     let score = 0;
 
     if (data.proxy) score += 50;
@@ -152,7 +170,7 @@ function calculateRiskScore(data: any): number {
     // Known datacenter ASNs
     const datacenterAsns = ['AS396982', 'AS14061', 'AS16276', 'AS15169', 'AS13335', 'AS16509', 'AS8075'];
     // DigitalOcean, Cloudflare, AWS, Google, Microsoft
-    if (datacenterAsns.some(asn => data.as?.includes(asn))) {
+    if (data.as && datacenterAsns.some(asn => data.as?.includes(asn))) {
         score += 20;
     }
 

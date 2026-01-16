@@ -1,16 +1,33 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
+import { loginSchema, formatZodErrors } from '@/lib/validations'
+import { checkRateLimit, getClientIdentifier, RATE_LIMIT_CONFIGS } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
     try {
-        const { email, password } = await request.json()
+        // Rate limit check - 10 login attempts per 15 min
+        const clientIP = getClientIdentifier(request.headers)
+        const rateLimit = checkRateLimit(`login:${clientIP}`, RATE_LIMIT_CONFIGS.auth)
 
-        if (!email || !password) {
+        if (rateLimit.limited) {
             return NextResponse.json(
-                { error: 'Email and password are required' },
+                { error: `Too many login attempts. Try again in ${rateLimit.retryAfter} seconds.` },
+                { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } }
+            )
+        }
+
+        const body = await request.json()
+
+        // Validate input with Zod
+        const validation = loginSchema.safeParse(body)
+        if (!validation.success) {
+            return NextResponse.json(
+                { error: formatZodErrors(validation.error) },
                 { status: 400 }
             )
         }
+
+        const { email, password } = validation.data
 
         const supabase = await createClient()
 

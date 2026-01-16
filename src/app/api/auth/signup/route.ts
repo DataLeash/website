@@ -1,26 +1,34 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { signupSchema, formatZodErrors } from '@/lib/validations'
+import { checkRateLimit, getClientIdentifier, RATE_LIMIT_CONFIGS } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
     try {
-        const { email, password, full_name, phone, qid } = await request.json()
+        // Rate limit check - strict for signups
+        const clientIP = getClientIdentifier(request.headers)
+        const rateLimit = checkRateLimit(`signup:${clientIP}`, { windowMs: 60 * 60 * 1000, maxRequests: 5 }) // 5 signups per hour
 
-        // Validate required fields
-        if (!email || !password || !full_name || !phone || !qid) {
+        if (rateLimit.limited) {
             return NextResponse.json(
-                { error: 'All fields are required' },
+                { error: `Too many signup attempts. Try again in ${rateLimit.retryAfter} seconds.` },
+                { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } }
+            )
+        }
+
+        const body = await request.json()
+
+        // Validate input with Zod
+        const validation = signupSchema.safeParse(body)
+        if (!validation.success) {
+            return NextResponse.json(
+                { error: formatZodErrors(validation.error) },
                 { status: 400 }
             )
         }
 
-        // Validate password strength
-        if (password.length < 12) {
-            return NextResponse.json(
-                { error: 'Password must be at least 12 characters' },
-                { status: 400 }
-            )
-        }
+        const { email, password, full_name, phone, qid } = validation.data
 
         const supabase = await createClient()
 

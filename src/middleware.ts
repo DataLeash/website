@@ -1,11 +1,25 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Security headers to add to all responses
+const SECURITY_HEADERS = {
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+}
+
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
         request: {
             headers: request.headers,
         },
+    })
+
+    // Add security headers to all responses
+    Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+        response.headers.set(key, value)
     })
 
     const supabase = createServerClient(
@@ -25,6 +39,10 @@ export async function middleware(request: NextRequest) {
                             headers: request.headers,
                         },
                     })
+                    // Re-apply security headers after creating new response
+                    Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+                        response.headers.set(key, value)
+                    })
                     cookiesToSet.forEach(({ name, value, options }) =>
                         response.cookies.set(name, value, options)
                     )
@@ -37,7 +55,7 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Protected routes
-    const protectedPaths = ['/dashboard', '/api/files']
+    const protectedPaths = ['/dashboard', '/api/files', '/api/stats', '/api/settings']
     const isProtectedPath = protectedPaths.some(path =>
         request.nextUrl.pathname.startsWith(path) &&
         !request.nextUrl.pathname.endsWith('/decrypt') // Allow decrypt to handle its own auth
@@ -47,7 +65,28 @@ export async function middleware(request: NextRequest) {
     const authPaths = ['/login', '/signup']
     const isAuthPath = authPaths.includes(request.nextUrl.pathname)
 
-    if (isProtectedPath && !user) {
+    // API routes that require authentication  
+    const isProtectedAPI = request.nextUrl.pathname.startsWith('/api/') &&
+        !request.nextUrl.pathname.startsWith('/api/auth/') &&
+        !request.nextUrl.pathname.startsWith('/api/otp/') &&
+        !request.nextUrl.pathname.startsWith('/api/newsletter') &&
+        !request.nextUrl.pathname.startsWith('/api/upgrade-request') &&
+        !request.nextUrl.pathname.startsWith('/api/chat') &&
+        !request.nextUrl.pathname.includes('/decrypt')
+
+    if ((isProtectedPath || isProtectedAPI) && !user) {
+        // For API routes, return 401
+        if (request.nextUrl.pathname.startsWith('/api/')) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                {
+                    status: 401,
+                    headers: Object.fromEntries(
+                        Object.entries(SECURITY_HEADERS)
+                    )
+                }
+            )
+        }
         // Redirect to login if not authenticated
         const url = request.nextUrl.clone()
         url.pathname = '/login'
@@ -70,3 +109,4 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico|logo.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
+

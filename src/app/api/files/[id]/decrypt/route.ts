@@ -83,26 +83,39 @@ export async function GET(
 
         // 5. Check Approval Status
         // Even with a valid OTP token, we must ensure they are APPROVED by owner
-        // (unless file doesn't require approval, but let's be safe)
-        const { data: fileSettings } = await supabase
+        const { data: fileData } = await supabase
             .from('files')
-            .select('settings, owner_id')
+            .select('settings, owner_id, require_approval')
             .eq('id', fileId)
             .single()
 
-        // If approval required, check access_requests
-        if (fileSettings?.settings?.require_approval) {
-            const { data: accessRequest } = await supabase
-                .from('access_requests')
-                .select('status')
-                .eq('file_id', fileId)
-                .eq('viewer_email', verifiedEmail.toLowerCase())
-                .eq('status', 'approved')
-                .single()
+        // Check if approval is required (support both schema variants)
+        const requiresApproval = fileData?.require_approval ||
+            fileData?.settings?.require_approval
 
-            if (!accessRequest) {
-                return NextResponse.json({ error: 'Access has not been approved by owner' }, { status: 403 })
+        if (requiresApproval) {
+            // Look for approved access request (case-insensitive email match)
+            const { data: accessRequest, error: accessError } = await supabase
+                .from('access_requests')
+                .select('id, status, viewer_email')
+                .eq('file_id', fileId)
+                .ilike('viewer_email', verifiedEmail)
+                .eq('status', 'approved')
+                .limit(1)
+
+            if (accessError) {
+                console.error('Access request lookup error:', accessError)
             }
+
+            if (!accessRequest || accessRequest.length === 0) {
+                console.log(`[Decrypt] Access denied: No approved request for ${verifiedEmail} on file ${fileId}`)
+                return NextResponse.json({
+                    error: 'Access pending approval or denied by owner',
+                    details: 'Your access request has not been approved yet. Please wait for the file owner to approve your request.'
+                }, { status: 403 })
+            }
+
+            console.log(`[Decrypt] Access approved for ${verifiedEmail} on file ${fileId}`)
         }
 
 

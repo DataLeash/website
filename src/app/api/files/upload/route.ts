@@ -18,6 +18,8 @@ async function sendFileShareEmail(params: {
     fileName: string
     shareLink: string
     expiresAt: string | null
+    requiresOTP: boolean
+    requiresPassword: boolean
 }) {
     try {
         const resend = getResendClient()
@@ -25,6 +27,13 @@ async function sendFileShareEmail(params: {
             console.log('Resend not configured, skipping email')
             return
         }
+
+        const securityNotice = params.requiresOTP
+            ? '<p style="margin: 12px 0 0 0; color: #f59e0b; font-size: 12px;">🔐 Email verification required to access</p>'
+            : params.requiresPassword
+                ? '<p style="margin: 12px 0 0 0; color: #f59e0b; font-size: 12px;">🔑 Password required to access</p>'
+                : ''
+
         await resend.emails.send({
             from: process.env.RESEND_FROM_EMAIL || 'Data Leash <noreply@dataleash.app>',
             to: [params.to],
@@ -57,6 +66,7 @@ async function sendFileShareEmail(params: {
                                 <p style="margin: 0 0 8px 0; color: #888; font-size: 12px;">FILE NAME</p>
                                 <p style="margin: 0; color: #00d4ff; font-size: 18px; font-weight: bold;">${params.fileName}</p>
                                 ${params.expiresAt ? `<p style="margin: 12px 0 0 0; color: #f59e0b; font-size: 12px;">⏰ Expires: ${new Date(params.expiresAt).toLocaleDateString()}</p>` : ''}
+                                ${securityNotice}
                             </div>
                         </td>
                     </tr>
@@ -70,7 +80,7 @@ async function sendFileShareEmail(params: {
                     <tr>
                         <td style="border-top: 1px solid rgba(0,212,255,0.2); padding-top: 16px;">
                             <p style="margin: 0; color: #666; font-size: 11px; text-align: center;">
-                                This file is protected by Data Leash. You'll need to verify your identity to view it.<br>
+                                This file is protected by Data Leash with enterprise-grade encryption.<br>
                                 The file owner will be notified when you access it.
                             </p>
                         </td>
@@ -89,6 +99,81 @@ async function sendFileShareEmail(params: {
     }
 }
 
+// Settings interface for type safety
+interface FileSettings {
+    // Protection Level
+    lockdown_level: number
+    trust_level: number
+
+    // Expiration
+    expires_at: string | null
+    max_views: number | null
+
+    // Access Control
+    blocked_countries: string[]
+    allowed_ips: string[]
+    blocked_ips: string[]
+    allowed_domains: string[]
+    device_limit: number
+    require_vpn_block: boolean
+
+    // Viewer Verification
+    require_nda: boolean
+    require_facial: boolean
+    require_email_otp: boolean
+    require_phone_verify: boolean
+    require_password: boolean
+    file_password: string
+
+    // Document Protection
+    add_watermark: boolean
+    watermark_text: string
+    block_copy_paste: boolean
+    block_printing: boolean
+    block_download: boolean
+    blur_on_inactive: boolean
+
+    // Monitoring
+    notify_on_view: boolean
+    track_scroll_depth: boolean
+    track_time_per_page: boolean
+    alert_on_screenshot: boolean
+    log_all_actions: boolean
+
+    // Self-Destruct
+    auto_kill_on_screenshot: boolean
+    self_destruct_after_read: boolean
+    destroy_on_forward: boolean
+    destroy_on_leak_detected: boolean
+    dead_man_switch: boolean
+    dead_man_hours: number
+}
+
+// Hash password for storage
+function hashPassword(password: string): string {
+    return crypto.createHash('sha256').update(password).digest('hex')
+}
+
+// Calculate expiration date from string like "7d", "24h", etc.
+function calculateExpirationDate(expiresAt: string | null): Date | null {
+    if (!expiresAt) return null
+
+    const now = new Date()
+    const match = expiresAt.match(/^(\d+)(h|d)$/)
+    if (!match) return null
+
+    const value = parseInt(match[1])
+    const unit = match[2]
+
+    if (unit === 'h') {
+        now.setHours(now.getHours() + value)
+    } else if (unit === 'd') {
+        now.setDate(now.getDate() + value)
+    }
+
+    return now
+}
+
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient()
@@ -102,10 +187,79 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // Check user's subscription tier and file limits
+        const { data: userData } = await supabase
+            .from('users')
+            .select('tier, tier_expires_at')
+            .eq('id', user.id)
+            .single()
+
+        const userTier = userData?.tier || 'free'
+        const tierExpired = userData?.tier_expires_at && new Date(userData.tier_expires_at) < new Date()
+        const effectiveTier = tierExpired ? 'free' : userTier
+
+        // Get file count for free tier limit check
+        if (effectiveTier === 'free') {
+            const { count: fileCount } = await supabase
+                .from('files')
+                .select('id', { count: 'exact', head: true })
+                .eq('owner_id', user.id)
+                .eq('is_destroyed', false)
+
+            const FREE_TIER_FILE_LIMIT = 5
+            if ((fileCount || 0) >= FREE_TIER_FILE_LIMIT) {
+                return NextResponse.json(
+                    {
+                        error: 'Free tier limit reached',
+                        message: `You have reached the maximum of ${FREE_TIER_FILE_LIMIT} files on the free tier. Upgrade to Pro for unlimited files.`,
+                        upgrade: true
+                    },
+                    { status: 403 }
+                )
+            }
+        }
+
         const formData = await request.formData()
         const file = formData.get('file') as File
-        const settings = JSON.parse(formData.get('settings') as string || '{}')
+        const settingsRaw = JSON.parse(formData.get('settings') as string || '{}')
         const recipients = JSON.parse(formData.get('recipients') as string || '[]')
+
+        // Apply defaults for missing settings
+        const settings: FileSettings = {
+            lockdown_level: settingsRaw.lockdown_level ?? 1,
+            trust_level: settingsRaw.trust_level ?? 1,
+            expires_at: settingsRaw.expires_at ?? null,
+            max_views: settingsRaw.max_views ?? null,
+            blocked_countries: settingsRaw.blocked_countries ?? [],
+            allowed_ips: settingsRaw.allowed_ips ?? [],
+            blocked_ips: settingsRaw.blocked_ips ?? [],
+            allowed_domains: settingsRaw.allowed_domains ?? [],
+            device_limit: settingsRaw.device_limit ?? 3,
+            require_vpn_block: settingsRaw.require_vpn_block ?? false,
+            require_nda: settingsRaw.require_nda ?? false,
+            require_facial: settingsRaw.require_facial ?? false,
+            require_email_otp: settingsRaw.require_email_otp ?? false,
+            require_phone_verify: settingsRaw.require_phone_verify ?? false,
+            require_password: settingsRaw.require_password ?? false,
+            file_password: settingsRaw.file_password ?? '',
+            add_watermark: settingsRaw.add_watermark ?? true,
+            watermark_text: settingsRaw.watermark_text ?? '',
+            block_copy_paste: settingsRaw.block_copy_paste ?? true,
+            block_printing: settingsRaw.block_printing ?? true,
+            block_download: settingsRaw.block_download ?? true,
+            blur_on_inactive: settingsRaw.blur_on_inactive ?? false,
+            notify_on_view: settingsRaw.notify_on_view ?? true,
+            track_scroll_depth: settingsRaw.track_scroll_depth ?? false,
+            track_time_per_page: settingsRaw.track_time_per_page ?? false,
+            alert_on_screenshot: settingsRaw.alert_on_screenshot ?? true,
+            log_all_actions: settingsRaw.log_all_actions ?? true,
+            auto_kill_on_screenshot: settingsRaw.auto_kill_on_screenshot ?? false,
+            self_destruct_after_read: settingsRaw.self_destruct_after_read ?? false,
+            destroy_on_forward: settingsRaw.destroy_on_forward ?? false,
+            destroy_on_leak_detected: settingsRaw.destroy_on_leak_detected ?? true,
+            dead_man_switch: settingsRaw.dead_man_switch ?? false,
+            dead_man_hours: settingsRaw.dead_man_hours ?? 72,
+        }
 
         if (!file) {
             return NextResponse.json(
@@ -147,6 +301,22 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // Calculate actual expiration date if string format (e.g. "7d")
+        const expirationDate = calculateExpirationDate(settings.expires_at)
+
+        // Hash file password if provided
+        const passwordHash = settings.require_password && settings.file_password
+            ? hashPassword(settings.file_password)
+            : null
+
+        // Prepare settings for storage (remove plain password)
+        const storedSettings = {
+            ...settings,
+            file_password: undefined, // Don't store plain password
+            password_hash: passwordHash,
+            expires_at_date: expirationDate?.toISOString() || null,
+        }
+
         // Create file record
         const { data: fileRecord, error: fileError } = await supabase
             .from('files')
@@ -157,17 +327,7 @@ export async function POST(request: NextRequest) {
                 file_size: file.size,
                 mime_type: file.type,
                 encryption_key_id: keyId,
-                settings: {
-                    lockdown_level: settings.lockdown_level || 1,
-                    trust_level: settings.trust_level || 1,
-                    expires_at: settings.expires_at || null,
-                    max_views: settings.max_views || null,
-                    require_nda: settings.require_nda || false,
-                    require_facial: settings.require_facial || false,
-                    allow_comments: settings.allow_comments || true,
-                    notify_on_view: settings.notify_on_view || true,
-                    auto_kill_on_screenshot: settings.auto_kill_on_screenshot || false,
-                },
+                settings: storedSettings,
                 iv: iv.toString('hex'),
                 auth_tag: authTag.toString('hex'),
                 storage_path: `${user.id}/${encryptedFileName}`,
@@ -183,18 +343,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Create key shards (4-part split)
-        // Shard 1: Server-side (stored in DB)
-        // Shard 2: Would be in device TPM (simulated for web)
-        // Shard 3: User's password derivative
-        // Shard 4: Session token
-        const shards = splitKey(encryptionKey, 4, 4) // All 4 required
+        const shards = splitKey(encryptionKey, 4, 4)
 
         for (let i = 0; i < shards.length; i++) {
             await supabase.from('key_shards').insert({
                 file_id: fileRecord.id,
                 shard_index: i + 1,
                 shard_data: shards[i],
-                expires_at: settings.expires_at || null,
+                expires_at: expirationDate?.toISOString() || null,
                 is_destroyed: false,
             })
         }
@@ -211,6 +367,15 @@ export async function POST(request: NextRequest) {
 
         // Create permissions for recipients and send emails
         for (const recipientEmail of recipients) {
+            // Check if recipient's email domain is allowed
+            if (settings.allowed_domains.length > 0) {
+                const recipientDomain = recipientEmail.split('@')[1]
+                if (!settings.allowed_domains.includes(recipientDomain)) {
+                    console.log(`Skipping recipient ${recipientEmail} - domain not allowed`)
+                    continue
+                }
+            }
+
             // Find user by email or create invite
             const { data: recipientUser } = await supabase
                 .from('users')
@@ -222,11 +387,12 @@ export async function POST(request: NextRequest) {
                 await supabase.from('permissions').insert({
                     file_id: fileRecord.id,
                     user_id: recipientUser.id,
-                    trust_level: settings.trust_level || 1,
-                    expires_at: settings.expires_at || null,
+                    trust_level: settings.trust_level,
+                    expires_at: expirationDate?.toISOString() || null,
                     nda_signed: false,
-                    can_comment: settings.allow_comments || false,
+                    can_comment: true,
                     can_sign: false,
+                    device_count: 0,
                 })
 
                 // Create notification for recipient
@@ -240,24 +406,68 @@ export async function POST(request: NextRequest) {
                 })
             }
 
-            // Send email notification to recipient (regardless of whether they have an account)
+            // Send email notification to recipient
             try {
                 await sendFileShareEmail({
                     to: recipientEmail,
                     ownerName,
                     fileName: file.name,
                     shareLink,
-                    expiresAt: settings.expires_at || null,
+                    expiresAt: expirationDate?.toISOString() || null,
+                    requiresOTP: settings.require_email_otp,
+                    requiresPassword: settings.require_password,
                 })
             } catch (emailError) {
                 console.error('Failed to send email to', recipientEmail, emailError)
             }
         }
 
+        // Log the upload activity
+        await supabase.from('access_logs').insert({
+            file_id: fileRecord.id,
+            action: 'upload',
+            location: {
+                owner_email: ownerData?.email,
+                file_name: file.name,
+                settings_summary: {
+                    lockdown_level: settings.lockdown_level,
+                    blocked_countries: settings.blocked_countries.length,
+                    require_otp: settings.require_email_otp,
+                    watermarked: settings.add_watermark,
+                },
+            },
+            fingerprint: {},
+            ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+        })
+
+        // Create owner notification
+        await supabase.from('notifications').insert({
+            user_id: user.id,
+            type: 'file_protected',
+            title: 'File Protected Successfully',
+            message: `"${file.name}" is now protected with ${recipients.length} recipient(s)`,
+            file_id: fileRecord.id,
+            is_read: false,
+        })
+
         return NextResponse.json({
             message: 'File protected successfully',
-            file: fileRecord,
+            file: {
+                id: fileRecord.id,
+                name: file.name,
+                size: file.size,
+                settings: {
+                    lockdown_level: settings.lockdown_level,
+                    blocked_countries: settings.blocked_countries.length,
+                    require_otp: settings.require_email_otp,
+                    require_password: settings.require_password,
+                    watermarked: settings.add_watermark,
+                    expires_at: expirationDate?.toISOString() || null,
+                    max_views: settings.max_views,
+                },
+            },
             share_link: shareLink,
+            recipients_count: recipients.length,
         })
     } catch (error) {
         console.error('Upload error:', error)

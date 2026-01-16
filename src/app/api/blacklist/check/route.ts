@@ -9,8 +9,51 @@ function getSupabaseAdmin() {
     )
 }
 
+// Type definitions
+interface FingerprintData {
+    combinedHash?: string
+    canvasDataHash?: string
+    screenResolution?: string
+    hardwareConcurrency?: number
+    webglFingerprint?: {
+        renderHash?: string
+        unmaskedRenderer?: string
+    }
+    audioFingerprint?: {
+        analyserHash?: string
+    }
+    fontFingerprint?: {
+        fontHash?: string
+    }
+    [key: string]: unknown
+}
+
+interface BlacklistEntry {
+    id: string
+    combined_hash?: string
+    canvas_hash?: string
+    webgl_hash?: string
+    audio_hash?: string
+    font_hash?: string
+    fingerprint?: FingerprintData
+    blocked_email?: string
+    blocked_name?: string
+    reason?: string
+    match_count?: number
+    [key: string]: unknown
+}
+
+interface MatchResult {
+    entry_id: string
+    match_type: string
+    similarity: number
+    blocked_email?: string
+    blocked_name?: string
+    reason?: string
+}
+
 // Calculate similarity between two fingerprints (0-100)
-function calculateFingerprintSimilarity(fp1: any, fp2: any): number {
+function calculateFingerprintSimilarity(fp1: FingerprintData, fp2: BlacklistEntry): number {
     let matchScore = 0;
     let totalChecks = 0;
 
@@ -98,7 +141,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check against each blacklisted entry
-        const matches: any[] = []
+        const matches: MatchResult[] = []
 
         for (const entry of blacklist) {
             // Check email match

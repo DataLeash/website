@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
+import { sendKillNotification } from '@/lib/email'
 
 // POST /api/files/[id]/kill - Instantly destroy a file and kill all active sessions
 export async function POST(
@@ -16,10 +17,10 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Verify ownership
+        // Verify ownership and get file name
         const { data: file, error: fileError } = await supabase
             .from('files')
-            .select('owner_id')
+            .select('owner_id, original_name')
             .eq('id', fileId)
             .single()
 
@@ -30,6 +31,13 @@ export async function POST(
         if (file.owner_id !== user.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
         }
+
+        // Get user profile for email
+        const { data: owner } = await supabase
+            .from('users')
+            .select('full_name, email')
+            .eq('id', user.id)
+            .single()
 
         // 1. Mark file as destroyed
         const { error: updateError } = await supabase
@@ -67,6 +75,16 @@ export async function POST(
             action: 'killed',
             timestamp: new Date().toISOString()
         })
+
+        // 5. Send email notification (non-blocking)
+        if (owner?.email) {
+            sendKillNotification({
+                to: owner.email,
+                ownerName: owner.full_name || 'User',
+                fileName: file.original_name,
+                reason: 'Manual kill switch activation'
+            }).catch(err => console.error('Kill notification email failed:', err))
+        }
 
         return NextResponse.json({ success: true, message: 'File destroyed and sessions killed' })
 

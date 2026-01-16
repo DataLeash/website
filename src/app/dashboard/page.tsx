@@ -10,8 +10,19 @@ import { ActiveViewers } from "@/components/ActiveViewers";
 import { DashboardEffects } from "@/components/DashboardEffects";
 import {
     FolderLock, Eye, Link2, Shield, Upload, Skull, BarChart3,
-    FileText, Activity, CircleDot, FolderOpen, Plus
+    FileText, Activity, CircleDot, FolderOpen, Plus, Download,
+    Users, ScanSearch, Settings
 } from "lucide-react";
+
+// Activity log interface for type safety
+interface ActivityLogEntry {
+    id: string
+    action: string
+    timestamp: string
+    users?: { full_name?: string; email?: string } | null
+    files?: { original_name?: string } | null
+    location?: { city?: string; country?: string } | null
+}
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -155,7 +166,7 @@ export default function DashboardPage() {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {logs.slice(0, 5).map((log: any) => (
+                                {(logs as ActivityLogEntry[]).slice(0, 5).map((log) => (
                                     <div
                                         key={log.id}
                                         className={`flex items-center gap-4 p-3 rounded-lg ${log.action === 'blocked'
@@ -195,12 +206,16 @@ export default function DashboardPage() {
 
                 <div className="mt-8 glass-card p-6">
                     <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
                         {[
                             { icon: Upload, label: "Upload File", href: "/dashboard/upload", color: "from-cyan-500 to-blue-600" },
                             { icon: Link2, label: "Share Link", href: "/dashboard/share", color: "from-purple-500 to-violet-600" },
-                            { icon: Skull, label: "Kill All Files", href: "/dashboard/kill", danger: true, color: "from-red-500 to-rose-600" },
+                            { icon: Users, label: "Active Sessions", href: "/dashboard/viewers", color: "from-amber-500 to-orange-600" },
                             { icon: BarChart3, label: "View Reports", href: "/dashboard/reports", color: "from-emerald-500 to-green-600" },
+                            { icon: ScanSearch, label: "Security Scan", href: "/dashboard/security", color: "from-blue-500 to-indigo-600" },
+                            { icon: Download, label: "Export Data", href: "/dashboard/analytics", color: "from-teal-500 to-cyan-600" },
+                            { icon: Settings, label: "Settings", href: "/dashboard/settings", color: "from-slate-500 to-gray-600" },
+                            { icon: Skull, label: "Kill All Files", href: "/dashboard/kill", danger: true, color: "from-red-500 to-rose-600" },
                         ].map((action, i) => (
                             <Link
                                 key={i}

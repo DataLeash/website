@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from 'react'
 export function useAuth() {
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const supabase = createClient()
 
     useEffect(() => {
@@ -44,9 +45,13 @@ export function useAuth() {
 
         if (!error && data) {
             setUser(data as User)
+        } else if (error) {
+            setError(error.message)
         }
         setLoading(false)
     }
+
+    const clearError = () => setError(null)
 
     const signUp = async (email: string, password: string, fullName: string, phone: string, qid: string) => {
         const response = await fetch('/api/auth/signup', {
@@ -75,13 +80,14 @@ export function useAuth() {
         }
     }
 
-    return { user, loading, signUp, signIn, signOut }
+    return { user, loading, error, signUp, signIn, signOut, clearError }
 }
 
 // Files hook
 export function useFiles() {
     const [files, setFiles] = useState<ProtectedFile[]>([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const supabase = createClient()
 
     const fetchFiles = useCallback(async () => {
@@ -102,6 +108,8 @@ export function useFiles() {
 
         if (!error && data) {
             setFiles(data as ProtectedFile[])
+        } else if (error) {
+            setError(error.message)
         }
         setLoading(false)
     }, [supabase])
@@ -157,7 +165,7 @@ export function useFiles() {
         return result
     }
 
-    return { files, loading, fetchFiles, uploadFile, killFile, chainKill }
+    return { files, loading, error, fetchFiles, uploadFile, killFile, chainKill }
 }
 
 // Activity/Access Logs hook
@@ -318,3 +326,119 @@ export function useStats() {
 
     return { stats, loading }
 }
+
+// Settings interface for type safety
+export interface UserSettings {
+    // Notifications
+    emailNotifications: boolean
+    pushNotifications: boolean
+    notifyOnView: boolean
+    notifyOnThreat: boolean
+    notifyOnApproval: boolean
+    dailyDigest: boolean
+    // Security
+    twoFactor: boolean
+    autoKillOnThreat: boolean
+    sessionTimeout: number
+    loginAlerts: boolean
+    // Defaults
+    requireNdaDefault: boolean
+    requireApprovalDefault: boolean
+    defaultExpiry: number
+    defaultMaxViews: number
+    // Blocked
+    blockedCountries: string[]
+}
+
+const DEFAULT_SETTINGS: UserSettings = {
+    emailNotifications: true,
+    pushNotifications: true,
+    notifyOnView: true,
+    notifyOnThreat: true,
+    notifyOnApproval: true,
+    dailyDigest: false,
+    twoFactor: false,
+    autoKillOnThreat: true,
+    sessionTimeout: 30,
+    loginAlerts: true,
+    requireNdaDefault: false,
+    requireApprovalDefault: true,
+    defaultExpiry: 0,
+    defaultMaxViews: 0,
+    blockedCountries: [],
+}
+
+// Settings hook - uses API for persistence
+export function useSettings() {
+    const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    // Load settings on mount
+    useEffect(() => {
+        const loadSettings = async () => {
+            try {
+                const res = await fetch('/api/settings')
+                if (res.ok) {
+                    const data = await res.json()
+                    setSettings(prev => ({ ...prev, ...data }))
+                } else {
+                    // Fallback to localStorage
+                    const saved = localStorage.getItem('dataleash_settings')
+                    if (saved) {
+                        setSettings(prev => ({ ...prev, ...JSON.parse(saved) }))
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load settings:', err)
+                // Fallback to localStorage
+                const saved = localStorage.getItem('dataleash_settings')
+                if (saved) {
+                    setSettings(prev => ({ ...prev, ...JSON.parse(saved) }))
+                }
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        loadSettings()
+    }, [])
+
+    // Save settings to API and localStorage
+    const saveSettings = async (newSettings: Partial<UserSettings>) => {
+        setSaving(true)
+        setError(null)
+
+        const updatedSettings = { ...settings, ...newSettings }
+        setSettings(updatedSettings)
+
+        try {
+            // Save to localStorage as backup
+            localStorage.setItem('dataleash_settings', JSON.stringify(updatedSettings))
+
+            // Save to API
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedSettings),
+            })
+
+            if (!res.ok) {
+                const data = await res.json()
+                throw new Error(data.error || 'Failed to save settings')
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save settings')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
+        setSettings(prev => ({ ...prev, [key]: value }))
+    }
+
+    return { settings, loading, saving, error, saveSettings, updateSetting, setSettings }
+}
+

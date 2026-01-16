@@ -8,6 +8,50 @@ import { Sidebar } from "@/components/Sidebar";
 import { Icon3D } from "@/components/Icon3D";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
+interface IpInfo {
+    isVpn?: boolean;
+    isDatacenter?: boolean;
+    riskScore?: number;
+    city?: string;
+    region?: string;
+    country?: string;
+    isp?: string;
+    org?: string;
+    as?: string;
+    timezone?: string;
+    [key: string]: any;
+}
+
+interface Fingerprint {
+    browser?: string;
+    browserVersion?: string;
+    os?: string;
+    platform?: string;
+    screenResolution?: string;
+    colorDepth?: number;
+    maxTouchPoints?: number;
+    cpuCores?: number;
+    deviceMemory?: number;
+    webglVendor?: string;
+    webglRenderer?: string;
+    language?: string;
+    connectionType?: string;
+    extensionsDetected?: boolean;
+    incognitoMode?: boolean;
+    timezone?: string;
+    canvasDataHash?: string;
+    canvasFingerprint?: string;
+    webglFingerprint?: { renderHash?: string; unmaskedRenderer?: string };
+    audioFingerprint?: { analyserHash?: string; sampleRate?: number };
+    fontFingerprint?: { fontHash?: string; fontCount?: number };
+    webrtcIps?: string[];
+    geolocation?: { mapsUrl?: string };
+    batteryLevel?: number;
+    batteryCharging?: boolean;
+    combinedHash?: string;
+    [key: string]: any;
+}
+
 interface AccessRequest {
     id: string;
     file_id: string;
@@ -16,8 +60,8 @@ interface AccessRequest {
     ip_address: string;
     device_info: string;
     user_agent: string;
-    fingerprint: any;
-    ip_info: any;
+    fingerprint: Fingerprint | null;
+    ip_info: IpInfo | null;
     status: 'pending' | 'approved' | 'denied';
     created_at: string;
     files?: {
@@ -198,8 +242,8 @@ function RequestsPageContent() {
     const historyRequests = requests.filter(r => r.status !== 'pending');
 
     const DeviceInfoPanel = ({ request }: { request: AccessRequest }) => {
-        const fp = request.fingerprint || {};
-        const ipInfo = request.ip_info || {};
+        const fp: Fingerprint = request.fingerprint || {};
+        const ipInfo: IpInfo = request.ip_info || {};
 
         return (
             <div className="mt-4 p-4 bg-[rgba(0,0,0,0.3)] rounded-lg text-sm">
@@ -254,7 +298,7 @@ function RequestsPageContent() {
                                 </tr>
                                 <tr>
                                     <td className="text-[var(--foreground-muted)] pr-2">Risk Score:</td>
-                                    <td className={ipInfo.riskScore > 50 ? 'text-[var(--error)]' : ipInfo.riskScore > 20 ? 'text-[var(--warning)]' : 'text-[var(--success)]'}>
+                                    <td className={(ipInfo.riskScore || 0) > 50 ? 'text-[var(--error)]' : (ipInfo.riskScore || 0) > 20 ? 'text-[var(--warning)]' : 'text-[var(--success)]'}>
                                         {ipInfo.riskScore || 0}/100
                                     </td>
                                 </tr>
@@ -325,19 +369,19 @@ function RequestsPageContent() {
                                 <span className="text-[10px]">{fp.webglFingerprint.unmaskedRenderer}</span>
                             </div>
                         )}
-                        {fp.fontFingerprint?.fontCount > 0 && (
+                        {(fp.fontFingerprint?.fontCount || 0) > 0 && (
                             <div>
-                                <span className="text-[var(--foreground-muted)]">Fonts Detected:</span> {fp.fontFingerprint.fontCount} unique fonts
+                                <span className="text-[var(--foreground-muted)]">Fonts Detected:</span> {fp.fontFingerprint?.fontCount} unique fonts
                             </div>
                         )}
-                        {fp.audioFingerprint?.sampleRate > 0 && (
+                        {(fp.audioFingerprint?.sampleRate || 0) > 0 && (
                             <div>
-                                <span className="text-[var(--foreground-muted)]">Audio Sample Rate:</span> {fp.audioFingerprint.sampleRate}Hz
+                                <span className="text-[var(--foreground-muted)]">Audio Sample Rate:</span> {fp.audioFingerprint?.sampleRate}Hz
                             </div>
                         )}
-                        {fp.webrtcIps?.length > 0 && (
+                        {(fp.webrtcIps?.length || 0) > 0 && (
                             <div className="text-[var(--warning)]">
-                                <span className="text-[var(--foreground-muted)]">WebRTC IPs (VPN Leak):</span> {fp.webrtcIps.join(', ')}
+                                <span className="text-[var(--foreground-muted)]">WebRTC IPs (VPN Leak):</span> {fp.webrtcIps?.join(', ')}
                             </div>
                         )}
                         {fp.geolocation?.mapsUrl && (
@@ -513,11 +557,33 @@ function RequestsPageContent() {
                                                     {request.status === 'approved' ? '✓ Approved' : '✗ Denied'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                                {request.status === 'approved' && (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm(`Revoke access for ${request.viewer_name}? They will be kicked out immediately.`)) {
+                                                                handleResponse(request.id, 'deny');
+                                                            }
+                                                        }}
+                                                        disabled={processing === request.id}
+                                                        className="px-3 py-1 text-sm bg-[rgba(239,68,68,0.1)] text-[var(--error)] border border-[rgba(239,68,68,0.2)] hover:bg-[rgba(239,68,68,0.2)] rounded disabled:opacity-50"
+                                                    >
+                                                        {processing === request.id ? '...' : '🚫 Revoke'}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleBlacklist(request)}
+                                                    disabled={processing === request.id}
+                                                    className="px-3 py-1 text-sm text-[var(--error)] border border-[rgba(239,68,68,0.2)] hover:bg-[rgba(239,68,68,0.1)] rounded disabled:opacity-50"
+                                                    title="Blacklist & Block Device"
+                                                >
+                                                    {processing === request.id ? '...' : '🚫'}
+                                                </button>
                                                 <button
                                                     onClick={() => handleDelete(request.id)}
                                                     disabled={processing === request.id}
-                                                    className="px-3 py-1 text-sm text-[var(--error)] hover:bg-[rgba(239,68,68,0.1)] rounded disabled:opacity-50"
+                                                    className="px-3 py-1 text-sm text-[var(--foreground-muted)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] rounded disabled:opacity-50"
+                                                    title="Remove from history"
                                                 >
                                                     {processing === request.id ? '...' : '🗑️'}
                                                 </button>

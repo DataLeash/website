@@ -7,13 +7,14 @@ import 'leaflet.heat'
 import {
     Layers, Zap, ShieldAlert, Play, Pause,
     SkipBack, Clock, Map as MapIcon, Globe,
-    Activity, Eye, Sun, Moon, Satellite
+    Activity, Eye, Sun, Moon, Satellite,
+    Smartphone, Laptop, Tablet, Monitor, HelpCircle
 } from 'lucide-react'
 
 // Extended Leaflet types for Heatmap and MarkerCluster
 declare module 'leaflet' {
-    export function heatLayer(latlngs: any[], options?: any): any;
-    export function markerClusterGroup(options?: any): any;
+    export function heatLayer(latlngs: unknown[], options?: unknown): unknown;
+    export function markerClusterGroup(options?: unknown): unknown;
 }
 
 interface MapLocation {
@@ -31,6 +32,15 @@ interface MapLocation {
     mapsUrl?: string
     viewerEmail?: string
     viewerName?: string
+    // Reconnaissance data
+    deviceType?: 'mobile' | 'tablet' | 'desktop' | 'unknown'
+    browser?: string
+    os?: string
+    ip?: string
+    isp?: string
+    timezone?: string
+    screenRes?: string
+    language?: string
 }
 
 interface WorldMapProps {
@@ -41,30 +51,115 @@ interface WorldMapProps {
     onToggleCountry?: (countryCode: string) => void
 }
 
-type MapMode = 'standard' | 'heatmap' | 'threat' | 'geofence'
+type MapMode = 'standard' | 'heatmap' | 'threat' | 'geofence' | 'recon'
 type MapTheme = 'dark' | 'light' | 'satellite' | 'slate'
 
 const THEMES = {
     dark: {
         url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
         icon: Moon,
-        name: 'Midnight'
+        name: 'Midnight',
+        maxZoom: 19
     },
     light: {
         url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
         icon: Sun,
-        name: 'Voyager'
+        name: 'Voyager',
+        maxZoom: 19
     },
     satellite: {
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         icon: Satellite,
-        name: 'Satellite'
+        name: 'Satellite',
+        maxZoom: 18
     },
     slate: {
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         icon: MapIcon,
-        name: 'Slate'
+        name: 'Slate',
+        maxZoom: 19
     }
+}
+
+// 3D SVG Device Icons
+const getDevice3DIcon = (deviceType?: string, size: number = 16): string => {
+    switch (deviceType) {
+        case 'mobile':
+            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+                <defs>
+                    <linearGradient id="phone-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#c084fc"/>
+                        <stop offset="100%" style="stop-color:#7c3aed"/>
+                    </linearGradient>
+                </defs>
+                <rect x="5" y="2" width="14" height="20" rx="3" fill="url(#phone-grad)" stroke="#fff" stroke-width="1.5"/>
+                <rect x="7" y="4" width="10" height="14" rx="1" fill="#1e1b4b" opacity="0.8"/>
+                <circle cx="12" cy="20" r="1.5" fill="#fff"/>
+                <rect x="9" y="3" width="6" height="1" rx="0.5" fill="#fff" opacity="0.5"/>
+            </svg>`
+        case 'tablet':
+            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+                <defs>
+                    <linearGradient id="tablet-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#fbbf24"/>
+                        <stop offset="100%" style="stop-color:#d97706"/>
+                    </linearGradient>
+                </defs>
+                <rect x="3" y="3" width="18" height="18" rx="2.5" fill="url(#tablet-grad)" stroke="#fff" stroke-width="1.5"/>
+                <rect x="5" y="5" width="14" height="12" rx="1" fill="#451a03" opacity="0.8"/>
+                <circle cx="12" cy="19" r="1" fill="#fff"/>
+            </svg>`
+        case 'desktop':
+            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+                <defs>
+                    <linearGradient id="desktop-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#60a5fa"/>
+                        <stop offset="100%" style="stop-color:#2563eb"/>
+                    </linearGradient>
+                </defs>
+                <rect x="2" y="3" width="20" height="13" rx="2" fill="url(#desktop-grad)" stroke="#fff" stroke-width="1.5"/>
+                <rect x="4" y="5" width="16" height="9" rx="1" fill="#1e3a5f" opacity="0.9"/>
+                <path d="M8 18h8v1H8z" fill="#fff" opacity="0.7"/>
+                <path d="M6 19h12v2H6z" fill="url(#desktop-grad)" stroke="#fff" stroke-width="0.5"/>
+            </svg>`
+        default:
+            return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="12" rx="2" fill="#6b7280" stroke="#fff" stroke-width="1.5"/>
+                <rect x="5" y="6" width="14" height="8" rx="1" fill="#374151"/>
+                <path d="M8 18h8l1 2H7z" fill="#6b7280" stroke="#fff" stroke-width="0.5"/>
+            </svg>`
+    }
+}
+
+// Get device color
+const getDeviceColor = (deviceType?: string): string => {
+    switch (deviceType) {
+        case 'mobile': return '#a855f7'
+        case 'tablet': return '#f59e0b'
+        case 'desktop': return '#3b82f6'
+        default: return '#6b7280'
+    }
+}
+
+// Browser icon (keep emojis for these, they're small)
+const getBrowserIcon = (browser?: string): string => {
+    const b = browser?.toLowerCase() || ''
+    if (b.includes('chrome')) return '🌐'
+    if (b.includes('firefox')) return '🦊'
+    if (b.includes('safari')) return '🧭'
+    if (b.includes('edge')) return '📘'
+    if (b.includes('opera')) return '🔴'
+    return '🌍'
+}
+
+// OS icon
+const getOSIcon = (os?: string): string => {
+    const o = os?.toLowerCase() || ''
+    if (o.includes('windows')) return '🪟'
+    if (o.includes('mac') || o.includes('ios')) return '🍎'
+    if (o.includes('android')) return '🤖'
+    if (o.includes('linux')) return '🐧'
+    return '💻'
 }
 
 export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCountries = [], onToggleCountry }: WorldMapProps) {
@@ -78,17 +173,18 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
 
     // UI State
     const [mode, setMode] = useState<MapMode>('standard')
-    const [theme, setTheme] = useState<MapTheme>('satellite') // Default to Satellite for "Wow"
+    const [theme, setTheme] = useState<MapTheme>('satellite')
     const [geoJsonData, setGeoJsonData] = useState<any>(null)
     const [countryMapping, setCountryMapping] = useState<Record<string, string>>({})
     const [showFlights, setShowFlights] = useState(true)
     const [isReplaying, setIsReplaying] = useState(false)
     const [replayProgress, setReplayProgress] = useState(100)
+    const [showDeviceIcons, setShowDeviceIcons] = useState(true)
 
     // Filtering state derived from replay
     const [displayLocations, setDisplayLocations] = useState<MapLocation[]>([])
 
-    // Initialize Map
+    // Initialize Map with higher maxZoom
     useEffect(() => {
         console.log('WorldMap: MountingComponent')
         if (!mapRef.current || leafletMapRef.current) return
@@ -98,18 +194,21 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
             center: [20, 0],
             zoom: 2,
             minZoom: 2,
-            maxZoom: 10,
-            zoomControl: false,
+            maxZoom: 19, // Increased from 10 to 19 for street-level zoom
+            zoomControl: true,
             attributionControl: false
         })
+
+        // Add zoom control to bottom-right
+        L.control.zoom({ position: 'bottomright' }).addTo(map)
 
         leafletMapRef.current = map
 
         // Initial Tile Layer
-        // Use current theme or default
         const currentTheme = THEMES[theme] || THEMES.satellite
         const tileLayer = L.tileLayer(currentTheme.url, {
-            noWrap: true
+            noWrap: true,
+            maxZoom: currentTheme.maxZoom
         }).addTo(map)
 
         tileLayerRef.current = tileLayer
@@ -131,10 +230,12 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
         }
     }, [])
 
-    // Update Theme
+    // Update Theme with proper maxZoom
     useEffect(() => {
         if (!leafletMapRef.current || !tileLayerRef.current) return
-        tileLayerRef.current.setUrl(THEMES[theme].url)
+        const themeConfig = THEMES[theme]
+        tileLayerRef.current.setUrl(themeConfig.url)
+        leafletMapRef.current.setMaxZoom(themeConfig.maxZoom)
     }, [theme])
 
     // Fetch GeoJSON & Codes
@@ -197,8 +298,6 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
             heatLayerRef.current = null
         }
 
-
-
         // 3. Render Heatmap
         if (mode === 'heatmap') {
             const heatPoints = displayLocations.map(l => [
@@ -211,15 +310,15 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
             heatLayerRef.current = L.heatLayer(heatPoints, {
                 radius: 35,
                 blur: 20,
-                maxZoom: 10,
+                maxZoom: 15,
                 minOpacity: 0.4,
                 gradient: {
-                    0.0: '#1e3a5f',    // dark blue
-                    0.2: '#2563eb',    // blue
-                    0.4: '#06b6d4',    // cyan
-                    0.6: '#22c55e',    // green
-                    0.8: '#f59e0b',    // amber/orange
-                    1.0: '#ef4444'     // red (hottest = active)
+                    0.0: '#1e3a5f',
+                    0.2: '#2563eb',
+                    0.4: '#06b6d4',
+                    0.6: '#22c55e',
+                    0.8: '#f59e0b',
+                    1.0: '#ef4444'
                 }
             }).addTo(map)
         }
@@ -230,7 +329,6 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
 
             geoJsonLayerRef.current = L.geoJSON(geoJsonData, {
                 style: (feature: any) => {
-                    // Use mapping to normalize ISO3 (Map) to ISO2 (Backend/DB)
                     const iso3 = String(feature.id)
                     const iso2 = countryMapping[iso3] || iso3
                     const isBlocked = blockedCountries.includes(iso2);
@@ -274,7 +372,7 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
             if (geoJsonLayerRef.current) geoJsonLayerRef.current.remove()
         }
 
-        // 5. Render Pins
+        // 5. Render Pins with 3D device icons and click-toggle popup
         if (mode !== 'heatmap') {
             displayLocations.forEach(loc => {
                 if (mode === 'threat' && !loc.isBlocked && !loc.isActive) return
@@ -283,50 +381,93 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
                 const isActive = loc.isActive
 
                 const color = isThreat ? '#ef4444' : isActive ? '#22c55e' : '#06b6d4'
+                const deviceColor = getDeviceColor(loc.deviceType)
+                const device3DSvg = getDevice3DIcon(loc.deviceType, 18)
+                const browserEmoji = getBrowserIcon(loc.browser)
+                const osEmoji = getOSIcon(loc.os)
+
+                // 3D SVG device icon
+                const iconHtml = showDeviceIcons && loc.deviceType ? `
+                    <div class="pin-3d ${isActive ? 'active' : ''} ${isThreat ? 'threat' : ''}">
+                        <div class="pin-3d-svg" style="filter: drop-shadow(0 2px 4px ${color}80);">
+                            ${device3DSvg}
+                        </div>
+                        ${isActive ? '<div class="pulse-ring-3d"></div>' : ''}
+                        ${loc.viewerCount > 1 ? `<span class="count-badge">${loc.viewerCount}</span>` : ''}
+                    </div>
+                ` : `
+                    <div class="pin-simple ${isActive ? 'active' : ''} ${isThreat ? 'threat' : ''}">
+                        <div class="dot-3d" style="background: radial-gradient(circle at 30% 30%, ${color}, ${color}80); box-shadow: 0 2px 6px ${color}60;"></div>
+                        ${isActive ? '<div class="pulse-sm"></div>' : ''}
+                        ${loc.viewerCount > 1 ? `<span class="count-sm">${loc.viewerCount}</span>` : ''}
+                    </div>
+                `
 
                 const icon = L.divIcon({
-                    className: 'custom-pin',
-                    html: `
-                        <div class="pin-wrapper ${isActive ? 'active' : ''} ${isThreat ? 'threat' : ''}">
-                            <div class="pin-dot" style="background-color: ${color}"></div>
-                            ${isActive ? '<div class="pin-pulse"></div>' : ''}
-                            ${loc.viewerCount > 1 ? `<div class="badge">${loc.viewerCount}</div>` : ''}
-                        </div>
-                    `,
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10]
+                    className: 'custom-pin-3d',
+                    html: iconHtml,
+                    iconSize: showDeviceIcons ? [28, 28] : [14, 14],
+                    iconAnchor: showDeviceIcons ? [14, 14] : [7, 7]
                 })
 
-                L.marker([loc.lat, loc.lon], { icon })
-                    .bindPopup(`
-                        <div class="popup-card">
-                            <div class="popup-header" style="border-left: 3px solid ${color}">
-                                <span class="status">${isThreat ? '⚠️ THREAT BLOCKED' : isActive ? '🟢 LIVE ACCESS' : '📍 HISTORY'}</span>
-                            </div>
-                            <div class="popup-body">
-                                <h3>${loc.city}, ${loc.country}</h3>
-                                <div class="user-row">
-                                    <span>👤 ${loc.viewerName || 'Anonymous'}</span>
-                                </div>
-                                <div class="meta-row">
-                                    <span>📧 ${loc.viewerEmail || 'No email'}</span>
-                                </div>
-                                <div class="stats-row">
-                                    <span>👁️ ${loc.viewerCount} views</span>
-                                    <span>🕒 ${new Date(loc.lastAccess || '').toLocaleTimeString()}</span>
-                                </div>
-                                <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${loc.lat},${loc.lon}" target="_blank" class="street-view-btn">
-                                    See Street View
-                                </a>
+                // Compact click-toggle popup
+                const popupContent = `
+                    <div class="info-card">
+                        <div class="card-header" style="border-color: ${color}">
+                            <span class="card-status">${isThreat ? '⚠️' : isActive ? '🟢' : '📍'}</span>
+                            <div class="card-title">
+                                <div class="card-loc">${loc.city}</div>
+                                <div class="card-country">${loc.country}</div>
                             </div>
                         </div>
-                    `, { maxWidth: 300, closeButton: false })
+                        <div class="card-body">
+                            <div class="card-grid">
+                                <div class="card-item">
+                                    <span class="card-label">👤</span>
+                                    <span class="card-val">${loc.viewerName || loc.viewerEmail?.split('@')[0] || 'Anon'}</span>
+                                </div>
+                                <div class="card-item">
+                                    <span class="card-label">${device3DSvg}</span>
+                                    <span class="card-val">${loc.deviceType || '?'}</span>
+                                </div>
+                                <div class="card-item">
+                                    <span class="card-label">${browserEmoji}</span>
+                                    <span class="card-val">${loc.browser || '?'}</span>
+                                </div>
+                                <div class="card-item">
+                                    <span class="card-label">${osEmoji}</span>
+                                    <span class="card-val">${loc.os?.split(' ')[0] || '?'}</span>
+                                </div>
+                            </div>
+                            ${loc.ip ? `<div class="card-ip">🌐 ${loc.ip}</div>` : ''}
+                            <div class="card-meta">
+                                <span>👁 ${loc.viewerCount} views</span>
+                                <span>📍 ${loc.lat.toFixed(2)}, ${loc.lon.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${loc.lat},${loc.lon}" target="_blank">🛣️ Street</a>
+                            <a href="https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lon}" target="_blank">📍 Maps</a>
+                        </div>
+                    </div>
+                `
+
+                L.marker([loc.lat, loc.lon], { icon })
+                    .bindPopup(popupContent, {
+                        maxWidth: 220,
+                        minWidth: 180,
+                        className: 'compact-popup',
+                        closeButton: true,
+                        autoPan: false,        // Don't move map when opening
+                        closeOnClick: false,   // Keep open when clicking map
+                        autoClose: false       // Keep open when opening another
+                    })
                     .on('click', () => onLocationClick?.(loc))
                     .addTo(markersRef.current!)
             })
         }
 
-        // 5. Render Flight Lines
+        // 6. Render Flight Lines
         if (showFlights && ownerLocation && displayLocations.length > 0) {
             displayLocations.forEach(loc => {
                 if (mode === 'threat' && !loc.isBlocked) return
@@ -334,7 +475,7 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
 
                 const color = loc.isBlocked ? '#ef4444' : loc.isActive ? '#22c55e' : '#06b6d4'
                 const isSatellite = theme === 'satellite'
-                const showLine = isSatellite ? (loc.isActive || loc.isBlocked) : true // Reduce clutter on satellite
+                const showLine = isSatellite ? (loc.isActive || loc.isBlocked) : true
 
                 if (showLine) {
                     L.polyline([
@@ -351,7 +492,7 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
             })
         }
 
-    }, [locations, ownerLocation, mode, theme, showFlights, displayLocations, blockedCountries, geoJsonData, countryMapping])
+    }, [locations, ownerLocation, mode, theme, showFlights, displayLocations, blockedCountries, geoJsonData, countryMapping, showDeviceIcons, onLocationClick, onToggleCountry])
 
     const toggleReplay = () => {
         if (isReplaying) {
@@ -401,6 +542,13 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
                     >
                         <ShieldAlert size={18} />
                     </button>
+                    <button
+                        onClick={() => setMode('recon')}
+                        className={`p-2 rounded-md transition-all ${mode === 'recon' ? 'bg-purple-500 text-white shadow-lg' : 'hover:bg-white/10 text-gray-300'}`}
+                        title="Reconnaissance Mode"
+                    >
+                        <Eye size={18} />
+                    </button>
                 </div>
 
                 {/* Theme & Extras */}
@@ -411,6 +559,14 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
                         title="Toggle Connections"
                     >
                         <Zap size={18} />
+                    </button>
+
+                    <button
+                        onClick={() => setShowDeviceIcons(!showDeviceIcons)}
+                        className={`p-2 w-full rounded-md flex items-center justify-center transition-all ${showDeviceIcons ? 'text-purple-400 bg-purple-500/10' : 'text-gray-400'}`}
+                        title="Toggle Device Icons"
+                    >
+                        <Smartphone size={18} />
                     </button>
 
                     <button
@@ -429,10 +585,31 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
                             }`}
                     >
                         <Globe className="w-3 h-3" />
-                        GEOFENCE
+                        GEO
                     </button>
                 </div>
             </div>
+
+            {/* Device Legend (when device icons enabled) */}
+            {showDeviceIcons && (
+                <div className="absolute top-4 right-4 z-[1000] glass-panel p-3 rounded-lg">
+                    <div className="text-xs font-bold mb-2 text-gray-300">Device Types</div>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <span dangerouslySetInnerHTML={{ __html: getDevice3DIcon('mobile', 20) }} />
+                            <span className="text-gray-400 text-xs">Mobile</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span dangerouslySetInnerHTML={{ __html: getDevice3DIcon('tablet', 20) }} />
+                            <span className="text-gray-400 text-xs">Tablet</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span dangerouslySetInnerHTML={{ __html: getDevice3DIcon('desktop', 20) }} />
+                            <span className="text-gray-400 text-xs">Desktop</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Bottom Center: Timeline / Replay */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] glass-panel px-4 py-3 rounded-full flex items-center gap-4 transition-all transform translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100">
@@ -473,190 +650,270 @@ export function WorldMap({ locations, ownerLocation, onLocationClick, blockedCou
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
                 }
                 
-                /* Owner Pin */
-                .avatar-pin {
-                    width: 40px;
-                    height: 40px;
-                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-                    border-radius: 50%;
-                    border: 2px solid white;
+                /* 3D SVG Pin Styles */
+                .pin-3d {
+                    position: relative;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    z-index: 2;
-                    position: relative;
                 }
-                .glow-effect {
-                    position: relative;
+                .pin-3d-svg {
                     display: flex;
-                    justify-content: center;
                     align-items: center;
+                    justify-content: center;
+                    transition: transform 0.2s;
+                    cursor: pointer;
                 }
-                .pulse-ring {
+                .pin-3d-svg:hover {
+                    transform: scale(1.3) translateY(-2px);
+                }
+                .pin-3d-svg svg {
+                    display: block;
+                }
+                .pulse-ring-3d {
                     position: absolute;
-                    width: 100%;
-                    height: 100%;
-                    background: #8b5cf6;
+                    width: 28px;
+                    height: 28px;
                     border-radius: 50%;
-                    z-index: 1;
-                    opacity: 0.6;
-                    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+                    border: 2px solid #22c55e;
+                    animation: pulse-3d 1.5s infinite;
+                    pointer-events: none;
                 }
-                
-                /* Viewer Pins */
-                .pin-wrapper {
-                    position: relative;
-                    transition: all 0.3s ease;
-                }
-                .pin-dot {
-                    width: 12px;
-                    height: 12px;
-                    border-radius: 50%;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                }
-                .pin-pulse {
+                .count-badge {
                     position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    width: 20px;
-                    height: 20px;
-                    background: inherit;
-                    border-radius: 50%;
-                    border: 2px solid currentColor;
-                    opacity: 0;
-                    animation: pin-ping 1.5s infinite;
-                }
-                /* Badge visibility improvements */
-                .badge {
-                    position: absolute;
-                    top: -8px;
-                    right: -8px;
-                    background: #2563eb;
+                    top: -4px;
+                    right: -4px;
+                    background: #3b82f6;
                     color: white;
-                    font-size: 9px;
+                    font-size: 8px;
                     font-weight: bold;
                     padding: 1px 4px;
                     border-radius: 6px;
-                    border: 1px solid rgba(255,255,255,0.8);
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    border: 1px solid white;
+                    min-width: 12px;
+                    text-align: center;
+                    z-index: 10;
                 }
-
-                .active .pin-dot {
-                    box-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
-                }
-                .threat .pin-dot {
-                    box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
-                }
-
-                /* Popups */
-                .leaflet-popup-content-wrapper {
-                    background: transparent !important;
-                    box-shadow: none !important;
-                    padding: 0 !important;
-                }
-                .leaflet-popup-tip {
-                    display: none;
-                }
-                .popup-card {
-                    background: rgba(15, 23, 42, 0.95);
-                    backdrop-filter: blur(8px);
-                    border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 12px;
-                    overflow: hidden;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-                    min-width: 200px;
-                }
-                .popup-header {
-                    background: rgba(255,255,255,0.03);
-                    padding: 8px 12px;
-                    font-size: 10px;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .popup-body {
-                    padding: 12px;
-                    color: #fff;
-                }
-                .popup-body h3 {
-                    margin: 0 0 8px 0;
-                    font-size: 14px;
-                    font-weight: 600;
-                }
-                .user-row, .meta-row, .stats-row {
+                
+                /* Simple Pin Styles */
+                .pin-simple {
+                    position: relative;
                     display: flex;
                     align-items: center;
-                    gap: 6px;
-                    font-size: 12px;
-                    color: #cbd5e1;
-                    margin-bottom: 4px;
+                    justify-content: center;
                 }
-                .street-view-btn {
-                    display: block;
-                    margin-top: 10px;
-                    text-align: center;
-                    background: rgba(59, 130, 246, 0.2);
-                    color: #93c5fd;
-                    padding: 6px;
-                    border-radius: 6px;
+                .dot-3d {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    border: 1.5px solid white;
+                    transition: transform 0.2s;
+                    cursor: pointer;
+                }
+                .dot-3d:hover {
+                    transform: scale(1.4);
+                }
+                .pulse-sm {
+                    position: absolute;
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
+                    border: 1px solid #22c55e;
+                    animation: pulse-3d 1.5s infinite;
+                }
+                .count-sm {
+                    position: absolute;
+                    top: -3px;
+                    right: -3px;
+                    background: #3b82f6;
+                    color: white;
+                    font-size: 7px;
+                    font-weight: bold;
+                    padding: 1px 3px;
+                    border-radius: 4px;
+                    border: 1px solid white;
+                }
+                
+                /* Active/Threat States */
+                .pin-3d.active .pin-3d-svg,
+                .pin-simple.active .dot-3d {
+                    filter: drop-shadow(0 0 6px #22c55e) drop-shadow(0 0 12px #22c55e50) !important;
+                }
+                .pin-3d.threat .pin-3d-svg,
+                .pin-simple.threat .dot-3d {
+                    filter: drop-shadow(0 0 6px #ef4444) drop-shadow(0 0 12px #ef444450) !important;
+                }
+                
+                /* Click-Toggle Popup Styles */
+                /* Compact Popup Styles */
+                .compact-popup .leaflet-popup-content-wrapper {
+                    background: transparent !important;
+                    padding: 0 !important;
+                    box-shadow: none !important;
+                    border-radius: 10px;
+                }
+                .compact-popup .leaflet-popup-tip {
+                    background: rgba(15, 23, 42, 0.95) !important;
+                }
+                .compact-popup .leaflet-popup-close-button {
+                    color: #64748b !important;
+                    font-size: 16px !important;
+                    padding: 4px 6px !important;
+                    z-index: 100;
+                    right: 2px !important;
+                    top: 2px !important;
+                }
+                .compact-popup .leaflet-popup-close-button:hover {
+                    color: white !important;
+                }
+                .compact-popup .leaflet-popup-content {
+                    margin: 0;
+                }
+                
+                /* Compact Info Card */
+                .info-card {
+                    background: rgba(15, 23, 42, 0.95);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(255,255,255,0.12);
+                    border-radius: 10px;
+                    overflow: hidden;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
                     font-size: 11px;
+                    color: white;
+                    width: 180px;
+                }
+                .card-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px 10px;
+                    background: rgba(255,255,255,0.03);
+                    border-left: 3px solid;
+                }
+                .card-status {
+                    font-size: 14px;
+                }
+                .card-title {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .card-loc {
+                    font-size: 12px;
+                    font-weight: 600;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .card-country {
+                    font-size: 9px;
+                    color: #64748b;
+                }
+                .card-body {
+                    padding: 8px 10px;
+                }
+                .card-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 6px;
+                }
+                .card-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+                .card-label {
+                    font-size: 12px;
+                    flex-shrink: 0;
+                }
+                .card-label svg {
+                    width: 12px;
+                    height: 12px;
+                }
+                .card-val {
+                    font-size: 10px;
+                    color: #94a3b8;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    text-transform: capitalize;
+                }
+                .card-ip {
+                    margin-top: 6px;
+                    font-family: 'SF Mono', monospace;
+                    font-size: 9px;
+                    color: #60a5fa;
+                    background: rgba(59, 130, 246, 0.1);
+                    padding: 3px 6px;
+                    border-radius: 4px;
+                }
+                .card-meta {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 6px;
+                    font-size: 9px;
+                    color: #64748b;
+                }
+                .card-actions {
+                    display: flex;
+                    gap: 6px;
+                    padding: 8px 10px;
+                    border-top: 1px solid rgba(255,255,255,0.06);
+                }
+                .card-actions a {
+                    flex: 1;
+                    text-align: center;
+                    padding: 5px;
+                    border-radius: 5px;
+                    font-size: 10px;
                     font-weight: 600;
                     text-decoration: none;
-                    transition: all 0.2s;
+                    background: rgba(59, 130, 246, 0.12);
+                    color: #93c5fd;
+                    transition: all 0.15s;
                 }
-                .street-view-btn:hover {
-                    background: rgba(59, 130, 246, 0.4);
+                .card-actions a:hover {
+                    background: rgba(59, 130, 246, 0.25);
                     color: white;
                 }
-
+                
+                /* Device Legend */
+                .glass-panel .text-xs { font-size: 10px; }
+                
                 /* Flight Lines Animation */
                 .flight-line {
                     stroke-dasharray: 4, 8;
                     animation: dash 30s linear infinite;
                 }
 
-                @keyframes pulse-ring {
-                    0% { transform: scale(0.8); opacity: 0.5; }
+                @keyframes pulse-3d {
+                    0% { transform: scale(1); opacity: 0.8; }
                     100% { transform: scale(2); opacity: 0; }
-                }
-                @keyframes pin-ping {
-                    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
-                    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
                 }
                 @keyframes dash {
                     to { stroke-dashoffset: -1000; }
                 }
 
-                .leaflet-control-zoom { display: none; }
-                .leaflet-container { font-family: inherit; }
-                
-                /* Custom Cluster Styles */
-                .marker-cluster-custom {
-                    background: transparent !important;
-                }
-                .cluster-icon {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    font-weight: bold;
-                    font-size: 14px;
-                    border: 3px solid rgba(255,255,255,0.8);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-                    transition: transform 0.2s;
-                }
-                .cluster-icon:hover {
-                    transform: scale(1.1);
-                }
-                .leaflet-marker-icon.marker-cluster-custom {
-                    background: transparent !important;
+                .leaflet-control-zoom {
                     border: none !important;
+                    background: rgba(15, 23, 42, 0.9) !important;
+                    backdrop-filter: blur(8px);
+                    border-radius: 8px !important;
+                    overflow: hidden;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
                 }
+                .leaflet-control-zoom a {
+                    background: transparent !important;
+                    color: white !important;
+                    border: none !important;
+                    width: 28px !important;
+                    height: 28px !important;
+                    line-height: 28px !important;
+                    font-size: 14px !important;
+                }
+                .leaflet-control-zoom a:hover {
+                    background: rgba(255,255,255,0.1) !important;
+                }
+                .leaflet-container { font-family: inherit; }
             `}</style>
         </div>
     )

@@ -36,6 +36,7 @@ export interface ProtectedFile {
     mime_type: string
     encryption_key_id: string
     settings: FileSettings
+    is_destroyed: boolean
     created_at: string
     updated_at: string
     total_views: number

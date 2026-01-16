@@ -15,6 +15,37 @@ function getSupabaseClient() {
     )
 }
 
+// Type definitions for IP info and fingerprint
+interface IpInfo {
+    ip: string
+    city?: string
+    region?: string
+    country?: string
+    countryCode?: string
+    isp?: string
+    org?: string
+    as?: string
+    timezone?: string
+    isVpn?: boolean
+    isProxy?: boolean
+    isDatacenter?: boolean
+    riskScore?: number
+}
+
+interface FingerprintData {
+    combinedHash?: string
+    browser?: string
+    os?: string
+    extensionsDetected?: boolean
+    vmDetection?: {
+        isVM: boolean
+        confidence: number
+        vmType?: string
+        reasons?: string[]
+    }
+    [key: string]: unknown
+}
+
 // Dynamic base URL detection - works from any device
 function getBaseUrl(request: NextRequest): string {
     // Try to get the origin from headers (works for any device)
@@ -80,7 +111,7 @@ export async function POST(request: NextRequest) {
         const deviceInfo = parseUserAgent(userAgent)
 
         // Get detailed IP info (VPN detection, geolocation)
-        let ipInfo = null
+        let ipInfo: IpInfo | null = null
         if (ipAddress && ipAddress !== 'Unknown') {
             try {
                 const ipResponse = await fetch(`http://ip-api.com/json/${ipAddress}?fields=status,country,countryCode,region,city,zip,lat,lon,timezone,isp,org,as,proxy,hosting`)
@@ -394,8 +425,8 @@ async function sendAccessRequestEmail(params: {
     ipAddress: string
     deviceInfo: string
     requestId: string
-    ipInfo?: any
-    fingerprint?: any
+    ipInfo?: IpInfo | null
+    fingerprint?: FingerprintData | null
 }) {
     if (!process.env.RESEND_API_KEY) {
         console.log('Resend not configured, skipping owner email')

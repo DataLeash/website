@@ -51,6 +51,15 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', requestId)
 
+        // If denying, also kill any active viewing sessions (Instant Revoke)
+        if (action === 'deny' && accessRequest) {
+            await supabase
+                .from('viewing_sessions')
+                .update({ is_active: false })
+                .eq('file_id', accessRequest.file_id)
+                .eq('viewer_email', accessRequest.viewer_email)
+        }
+
         if (updateError) {
             return NextResponse.json({ error: 'Failed to update request' }, { status: 500 })
         }

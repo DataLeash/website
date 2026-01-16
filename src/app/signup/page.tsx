@@ -203,25 +203,7 @@ export default function SignupPage() {
                     </div>
                 )}
 
-                {/* Steps indicator */}
-                <div className="mt-6 glass-card p-4">
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 1 ? 'bg-[var(--primary)] text-black' : 'border border-[var(--primary)]'}`}>1</span>
-                            <span>Register</span>
-                        </div>
-                        <div className="h-px w-8 bg-[rgba(0,212,255,0.3)]"></div>
-                        <div className={`flex items-center gap-2 ${step < 2 ? 'opacity-50' : ''}`}>
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 2 ? 'bg-[var(--primary)] text-black' : 'border border-[var(--primary)]'}`}>2</span>
-                            <span>Verify</span>
-                        </div>
-                        <div className="h-px w-8 bg-[rgba(0,212,255,0.3)]"></div>
-                        <div className={`flex items-center gap-2 ${step < 3 ? 'opacity-50' : ''}`}>
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 3 ? 'bg-[var(--primary)] text-black' : 'border border-[var(--primary)]'}`}>3</span>
-                            <span>2FA</span>
-                        </div>
-                    </div>
-                </div>
+
 
                 {/* Login link */}
                 <p className="text-center mt-6 text-[var(--foreground-muted)]">

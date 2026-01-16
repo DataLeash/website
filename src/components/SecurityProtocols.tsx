@@ -77,6 +77,22 @@ const protocols = [
         output: "Watch this and judge yourself.",
         status: 'CRITICAL',
         video: '/questionvideo.mp4'
+    },
+    {
+        id: 'SEC-10',
+        icon: Play,
+        query: 'PROTOCOL: SECURE_MEDIA_PIPELINE',
+        question: "How do you prevent screen recording and capture?",
+        output: "We enforce a HARDWARE-LEVEL secure media path. Decryption occurs inside a Trusted Execution Environment (TEE) — a sandboxed CPU enclave inaccessible to the OS or any third-party app. Decrypted frames never exist in normal RAM. Screen recorders (OBS, ShareX, QuickTime) receive a BLACK SCREEN from the graphics driver. This is the same technology Netflix/Disney+ uses for 4K content.",
+        status: 'HARDWARE-ENFORCED'
+    },
+    {
+        id: 'SEC-11',
+        icon: Wifi,
+        query: 'PROTOCOL: OUTPUT_PROTECTION_ENFORCEMENT',
+        question: "Can someone capture it with an HDMI splitter?",
+        output: "NEGATIVE. We enforce HDCP 2.2 (High-bandwidth Digital Content Protection) for all external outputs. HDCP encrypts the signal from GPU to display. If the capture card, cable, or monitor fails the cryptographic handshake — the signal is BLOCKED at the hardware level. This defeats HDMI capture cards, wireless casting, and external recorders.",
+        status: 'ENCRYPTED'
     }
 ]
 

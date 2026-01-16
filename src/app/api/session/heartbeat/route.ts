@@ -9,6 +9,16 @@ function getSupabaseAdmin() {
     )
 }
 
+// Session interface to fix type errors
+interface Session {
+    id: string
+    is_active: boolean
+    file_id: string
+    viewer_email?: string
+    is_revoked?: boolean
+    revoked_reason?: string
+}
+
 // POST /api/session/heartbeat - Update session heartbeat & check if still valid
 export async function POST(request: NextRequest) {
     try {
@@ -70,6 +80,21 @@ export async function POST(request: NextRequest) {
                     }
                 }
 
+                // Check Access Request Status (Instant Revocation)
+                const { data: accessRequest } = await supabase
+                    .from('access_requests')
+                    .select('status')
+                    .eq('file_id', fileId)
+                    .eq('viewer_email', viewerEmail.toLowerCase())
+                    .single()
+
+                if (accessRequest && accessRequest.status !== 'approved') {
+                    return NextResponse.json({
+                        valid: false,
+                        reason: 'Access revoked by file owner'
+                    })
+                }
+
                 // Update heartbeat
                 await supabase
                     .from('viewing_sessions')
@@ -91,7 +116,7 @@ export async function POST(request: NextRequest) {
 
             const { data: vs } = await supabase
                 .from('viewing_sessions')
-                .select('is_active, file_id')
+                .select('is_active, file_id, viewer_email')
                 .eq('id', sessionId)
                 .single()
 
@@ -173,6 +198,24 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({
                         valid: false,
                         reason: 'Access revoked: Region blocked'
+                    })
+                }
+            }
+
+            // Check Access Request Status (Instant Revocation - Legacy Path)
+            const currentSession = session as Session
+            if (currentSession.viewer_email) {
+                const { data: accessRequest } = await supabase
+                    .from('access_requests')
+                    .select('status')
+                    .eq('file_id', session.file_id)
+                    .ilike('viewer_email', currentSession.viewer_email)
+                    .single()
+
+                if (accessRequest && accessRequest.status !== 'approved') {
+                    return NextResponse.json({
+                        valid: false,
+                        reason: 'Access revoked by file owner'
                     })
                 }
             }

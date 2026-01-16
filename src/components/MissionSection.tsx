@@ -43,25 +43,24 @@ export function MissionSection() {
 
                         <div className="inline-flex items-center gap-2 mb-6">
                             <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                            <span className="text-blue-500 text-xs font-mono tracking-[0.2em] font-bold">MISSION DIRECTIVE</span>
+                            <span className="text-blue-500 text-xs font-mono tracking-[0.2em] font-bold">ABSOLUTE DOMINION</span>
                         </div>
 
                         <h2 className="text-4xl md:text-5xl font-bold text-white mb-8 tracking-tighter leading-tight">
-                            We are the <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Architects of Silence.</span>
+                            Ownership is <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Absolute.</span>
                         </h2>
 
                         <div className="space-y-6 text-slate-400 text-lg leading-relaxed font-light">
                             <p>
-                                In the digital age, "deleted" is a lie. Servers retain logs. Clouds retain backups.
-                                Third parties retain ownership. Your data has been held hostage by the infrastructure that was supposed to serve it.
-                            </p>
-                            <p className="text-slate-200 font-medium">
-                                DataLeash was built to break that cycle.
+                                Possession is no longer 9/10ths of the law. It is the <strong className="text-white">only law</strong>.
                             </p>
                             <p>
-                                We believe in <strong className="text-white">Data Sovereignty</strong>—the absolute, mathematical guarantee
-                                that you, and only you, control the existence of your information. Not a promise. Not a policy.
-                                But a physical impossibility for anyone else to access it.
+                                In the digital age, your data has been held hostage by infrastructure. Servers retain logs. Clouds retain backups.
+                                Third parties assume ownership by default.
+                            </p>
+                            <p className="text-slate-200 font-medium">
+                                We build the walls that make your information physically impossible for them to touch.
+                                Not a promise. Not a policy. A mathematical certainty.
                             </p>
                         </div>
 
@@ -88,7 +87,7 @@ export function MissionSection() {
                                     <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
                                     <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/50" />
                                 </div>
-                                <div className="ml-auto text-xs font-mono text-slate-500">root@dataleash:~/manifesto</div>
+                                <div className="ml-auto text-xs font-mono text-slate-500">root@dataleash:~/dominion</div>
                             </div>
 
                             {/* Terminal Content */}
@@ -121,7 +120,7 @@ export function MissionSection() {
 
                         {/* Decoding Decal behind */}
                         <div className="absolute -z-10 -bottom-10 -right-10 text-9xl font-black text-slate-800/20 select-none overflow-hidden whitespace-nowrap">
-                            <EncryptedText text="SOVEREIGNTY" />
+                            <EncryptedText text="DOMINION" />
                         </div>
                     </div>
 

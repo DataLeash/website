@@ -7,6 +7,19 @@ import { Sidebar } from '@/components/Sidebar'
 import { Icon3D } from '@/components/Icon3D'
 import { PageLoading, LoadingSpinner } from '@/components/LoadingSpinner'
 
+interface IpInfo {
+    isp?: string
+    country?: string
+    [key: string]: any
+}
+
+interface Fingerprint {
+    browser?: string
+    os?: string
+    screenResolution?: string
+    [key: string]: any
+}
+
 interface Leaker {
     id: string
     original_recipient_email: string
@@ -15,9 +28,9 @@ interface Leaker {
     file_id: string
     file_name: string | null
     unauthorized_fingerprint_hash: string
-    unauthorized_fingerprint: any
+    unauthorized_fingerprint: Fingerprint | null
     unauthorized_ip: string | null
-    unauthorized_ip_info: any | null
+    unauthorized_ip_info: IpInfo | null
     unauthorized_location: string | null
     detection_type: string
     similarity_score: number
@@ -142,8 +155,8 @@ export default function LeakersPage() {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filter === f
-                                    ? 'bg-[var(--primary)] text-black'
-                                    : 'glass-card hover:border-[var(--primary)]'
+                                ? 'bg-[var(--primary)] text-black'
+                                : 'glass-card hover:border-[var(--primary)]'
                                 }`}
                         >
                             {f === 'all' ? 'All' : f.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
@@ -193,9 +206,9 @@ export default function LeakersPage() {
                                     </div>
                                     <div className="text-right">
                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${leaker.status === 'unreviewed' ? 'bg-yellow-500/20 text-yellow-500' :
-                                                leaker.status === 'confirmed_leak' ? 'bg-red-500/20 text-red-500' :
-                                                    leaker.status === 'blacklisted' ? 'bg-[var(--primary)]/20 text-[var(--primary)]' :
-                                                        'bg-green-500/20 text-green-500'
+                                            leaker.status === 'confirmed_leak' ? 'bg-red-500/20 text-red-500' :
+                                                leaker.status === 'blacklisted' ? 'bg-[var(--primary)]/20 text-[var(--primary)]' :
+                                                    'bg-green-500/20 text-green-500'
                                             }`}>
                                             {leaker.status.replace(/_/g, ' ')}
                                         </span>

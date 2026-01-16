@@ -12,7 +12,7 @@ interface ProtectedViewerProps {
     viewerEmail: string
     fileId: string
     sessionId?: string  // Added for session tracking
-    fingerprint?: any   // Device fingerprint
+    fingerprint?: unknown   // Device fingerprint
 }
 
 export default function ProtectedViewer({
@@ -200,6 +200,10 @@ export default function ProtectedViewer({
                     if (heartbeatRef.current) {
                         clearInterval(heartbeatRef.current)
                     }
+                    // Force reload to kick user out
+                    // Use setTimeout to allow state update to show "Access Terminated" briefly or just reload immediately
+                    // User requested "trigger reload screen it will logout them"
+                    window.location.reload()
                 }
             } catch (err) {
                 // Network error - likely offline

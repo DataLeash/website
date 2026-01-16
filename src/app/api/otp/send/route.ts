@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
                 ownerName: owner?.full_name || 'Someone',
                 code: otp
             })
-        } catch (emailError: any) {
+        } catch (emailError: unknown) {
             console.error('Email send error:', emailError)
 
             // Delete the OTP record if email fails

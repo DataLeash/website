@@ -52,7 +52,7 @@ export interface DeviceFingerprint {
         aliasedLineWidthRange: number[];
         aliasedPointSizeRange: number[];
         extensions: string[];
-        contextAttributes: Record<string, any>;
+        contextAttributes: Record<string, unknown>;
         renderHash: string;
     };
 
@@ -243,7 +243,7 @@ function getWebGLFingerprint(): DeviceFingerprint['webglFingerprint'] {
             aliasedLineWidthRange: Array.from(gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE) || []),
             aliasedPointSizeRange: Array.from(gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) || []),
             extensions,
-            contextAttributes: gl.getContextAttributes() || {},
+            contextAttributes: (gl.getContextAttributes() as any) || {},
             renderHash
         };
     } catch {
@@ -1129,7 +1129,7 @@ export function generateHardwareBanSignature(fingerprint: DeviceFingerprint): Ha
     };
 }
 
-// Check if fingerprint matches any banned signature
+// Check if fingerprint matches unknown banned signature
 export function matchesBannedHardware(
     fingerprint: DeviceFingerprint,
     bannedSignatures: HardwareBanSignature[]
@@ -1544,8 +1544,8 @@ export interface ForensicFingerprint {
         hdr: boolean;
         pointer: string;
         hover: string;
-        anyPointer: string;
-        anyHover: string;
+        unknownPointer: string;
+        unknownHover: string;
         displayMode: string;
     };
 
@@ -2191,8 +2191,8 @@ function getCSSFeaturesForensic(): ForensicFingerprint['cssFeatures'] {
         hdr: matchMedia('(dynamic-range: high)') === 'true',
         pointer: matchMedia('(pointer: fine)') === 'true' ? 'fine' : 'coarse',
         hover: matchMedia('(hover: hover)') === 'true' ? 'hover' : 'none',
-        anyPointer: matchMedia('(any-pointer: fine)') === 'true' ? 'fine' : 'coarse',
-        anyHover: matchMedia('(any-hover: hover)') === 'true' ? 'hover' : 'none',
+        unknownPointer: matchMedia('(unknown-pointer: fine)') === 'true' ? 'fine' : 'coarse',
+        unknownHover: matchMedia('(unknown-hover: hover)') === 'true' ? 'hover' : 'none',
         displayMode: matchMedia('(display-mode: standalone)') === 'true' ? 'standalone' : 'browser'
     };
 }
