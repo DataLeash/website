@@ -17,6 +17,13 @@ export async function middleware(request: NextRequest) {
         },
     })
 
+    // Legacy Admin Redirect
+    if (request.nextUrl.pathname.startsWith('/dashboard/admin')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/admin'
+        return NextResponse.redirect(url)
+    }
+
     // Add security headers to all responses
     Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
         response.headers.set(key, value)

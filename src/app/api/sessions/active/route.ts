@@ -13,18 +13,18 @@ export async function GET() {
         }
 
         // Get all active sessions for files owned by this user
-        // Priority: viewing_sessions table
         const { data: sessions, error } = await supabase
             .from('viewing_sessions')
             .select(`
                 id,
                 file_id,
                 viewer_email,
-                viewer_name,
-                ip_info,
-                device_info,
+                viewer_ip,
+                viewer_location,
+                user_agent,
                 started_at,
                 last_heartbeat,
+                view_duration_seconds,
                 files!inner (
                     id,
                     original_name,
@@ -36,6 +36,14 @@ export async function GET() {
             .order('started_at', { ascending: false })
 
         if (error) {
+            // Handle case where table doesn't exist yet
+            if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+                return NextResponse.json({
+                    sessions: [],
+                    count: 0,
+                    message: 'No viewing sessions table yet'
+                })
+            }
             console.error('Active sessions error:', error)
             return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 })
         }
@@ -46,9 +54,9 @@ export async function GET() {
         // Calculate viewing duration for each session
         const sessionsWithDuration = (filteredSessions || []).map(session => ({
             ...session,
-            viewing_duration: Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000),
-            location: session.ip_info?.city
-                ? `${session.ip_info.city}, ${session.ip_info.country}`
+            viewing_duration: session.view_duration_seconds || Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000),
+            location: session.viewer_location?.city
+                ? `${session.viewer_location.city}, ${session.viewer_location.country}`
                 : 'Unknown'
         }))
 
@@ -59,6 +67,7 @@ export async function GET() {
 
     } catch (error) {
         console.error('Active sessions error:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        // Return empty array instead of error for better UX
+        return NextResponse.json({ sessions: [], count: 0 })
     }
 }

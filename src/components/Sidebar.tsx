@@ -20,11 +20,17 @@ interface SidebarProps {
 export function Sidebar({ showLogout = true }: SidebarProps) {
     const pathname = usePathname();
     const { unreadCount } = useNotifications();
-    const { signOut } = useAuth();
+    const { signOut, user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
 
-
     const navItems = [
+        ...(user?.is_admin ? [{
+            icon: Shield,
+            label: "Admin Portal",
+            href: "/admin",
+            color: "from-red-600 to-red-900",
+            badge: "ADMIN"
+        }] : []),
         { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", color: "from-cyan-500 to-blue-600" },
         { icon: FolderLock, label: "My Files", href: "/dashboard/files", color: "from-emerald-500 to-green-600" },
         { icon: Upload, label: "Upload", href: "/dashboard/upload", color: "from-purple-500 to-violet-600" },

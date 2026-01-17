@@ -2,247 +2,160 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
-// Use direct client without RLS for public file viewing
 function getSupabaseClient() {
     return createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        }
+        { auth: { autoRefreshToken: false, persistSession: false } }
     )
 }
 
-// Get IP info for logging
-async function getIPInfo(ip: string): Promise<any> {
-    if (!ip || ip === '::1' || ip === '127.0.0.1') {
-        return { city: 'Localhost', country: 'Development', countryCode: 'XX' }
-    }
-    try {
-        const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,city,country,countryCode,lat,lon,isp`, {
-            signal: AbortSignal.timeout(3000)
-        })
-        const data = await res.json()
-        if (data.status === 'success') {
-            return data
-        }
-    } catch { }
-    return { city: 'Unknown', country: 'Unknown', countryCode: 'XX' }
+function hashPassword(password: string): string {
+    return crypto.createHash('sha256').update(password).digest('hex')
 }
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+async function getIPInfo(ip: string) {
+    if (!ip || ip === '::1' || ip === '127.0.0.1') return { city: 'Localhost', country: 'Development' }
+    try {
+        const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,city,country,countryCode,isp`, { signal: AbortSignal.timeout(3000) })
+        const data = await res.json()
+        return data.status === 'success' ? data : { city: 'Unknown', country: 'Unknown' }
+    } catch { return { city: 'Unknown', country: 'Unknown' } }
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    // Handle password validation
+    return commonDecrypt(req, await params, true)
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    // Handle normal viewing
+    return commonDecrypt(req, await params, false)
+}
+
+async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string }, isPasswordCheck: boolean) {
     try {
         const supabase = getSupabaseClient()
-        const { id: fileId } = await params
+        let viewerEmail = request.headers.get('x-viewer-email')?.toLowerCase()
+        let passwordAttempt = ''
 
-        // === SECURITY: AUTHENTICATION CHECK ===
-        // 1. Get Token
-        const tokenHeader = request.headers.get('x-viewer-token')
-        const emailHeader = request.headers.get('x-viewer-email')
-
-        // 2. Validate Token (Base64 JSON from OTP)
-        let verifiedEmail = null
-        if (tokenHeader) {
-            try {
-                const tokenData = JSON.parse(Buffer.from(tokenHeader, 'base64').toString())
-
-                // Check expiration
-                if (tokenData.expires && tokenData.expires < Date.now()) {
-                    return NextResponse.json({ error: 'Access token expired' }, { status: 401 })
-                }
-
-                // Check file match
-                if (tokenData.fileId && tokenData.fileId !== fileId) {
-                    return NextResponse.json({ error: 'Invalid token for this file' }, { status: 403 })
-                }
-
-                verifiedEmail = tokenData.email
-            } catch (e) {
-                return NextResponse.json({ error: 'Invalid access token' }, { status: 401 })
-            }
-        }
-        // 3. Fallback: Check Active Session (if header missing but session cookie/param exists?)
-        // For now, strict token requirement is best.
-
-        // 4. Owner Override: If called by owner (via dashboard), they might have Supabase Auth cookie
-        // But this is usually called by View Page. Owner preview might use same flow.
-
-        if (!verifiedEmail) {
-            // Check if it's the owner via Supabase Cookie (optional, for "Preview")
-            // This is complex because we are bypassing middleware. 
-            // For now, assume STRICT VIEWING.
-            // If no token, check if we have a valid access request for the email header? No, unsafe.
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+        if (isPasswordCheck) {
+            const body = await request.json()
+            passwordAttempt = body.password
+            viewerEmail = body.viewerEmail?.toLowerCase()
         }
 
-        // 5. Check Approval Status
-        // Even with a valid OTP token, we must ensure they are APPROVED by owner
-        const { data: fileData } = await supabase
-            .from('files')
-            .select('settings, owner_id, require_approval')
-            .eq('id', fileId)
-            .single()
-
-        // Check if approval is required (support both schema variants)
-        const requiresApproval = fileData?.require_approval ||
-            fileData?.settings?.require_approval
-
-        if (requiresApproval) {
-            // Look for approved access request (case-insensitive email match)
-            const { data: accessRequest, error: accessError } = await supabase
-                .from('access_requests')
-                .select('id, status, viewer_email')
-                .eq('file_id', fileId)
-                .ilike('viewer_email', verifiedEmail)
-                .eq('status', 'approved')
-                .limit(1)
-
-            if (accessError) {
-                console.error('Access request lookup error:', accessError)
-            }
-
-            if (!accessRequest || accessRequest.length === 0) {
-                console.log(`[Decrypt] Access denied: No approved request for ${verifiedEmail} on file ${fileId}`)
-                return NextResponse.json({
-                    error: 'Access pending approval or denied by owner',
-                    details: 'Your access request has not been approved yet. Please wait for the file owner to approve your request.'
-                }, { status: 403 })
-            }
-
-            console.log(`[Decrypt] Access approved for ${verifiedEmail} on file ${fileId}`)
-        }
-
-
-        // === END SECURITY CHECK ===
-
-        // Get client IP
-        const forwardedFor = request.headers.get('x-forwarded-for')
-        const realIp = request.headers.get('x-real-ip')
-        const clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || '::1'
-        const userAgent = request.headers.get('user-agent') || ''
-
-        // Get file record
+        // Get file data
         const { data: file, error: fileError } = await supabase
             .from('files')
             .select('*')
             .eq('id', fileId)
             .single()
 
-        if (fileError || !file) {
-            return NextResponse.json({ error: 'File not found' }, { status: 404 })
+        if (fileError || !file) return NextResponse.json({ error: 'File not found' }, { status: 404 })
+        if (file.is_destroyed) return NextResponse.json({ error: 'File destroyed' }, { status: 410 })
+
+        const settings = file.settings || {}
+
+        // 1. Check Expiry
+        if (settings.expires_at_date && new Date(settings.expires_at_date) < new Date()) {
+            return NextResponse.json({ error: 'Link expired' }, { status: 410 })
         }
 
-        if (file.is_destroyed) {
-            return NextResponse.json({ error: 'File has been destroyed' }, { status: 410 })
+        // 2. Check Password
+        if (settings.require_password) {
+            if (!isPasswordCheck) {
+                // GET request on password file -> unauthorized
+                return NextResponse.json({ error: 'Password required' }, { status: 401 })
+            }
+            if (hashPassword(passwordAttempt) !== settings.password_hash) {
+                return NextResponse.json({ error: 'Incorrect password' }, { status: 403 })
+            }
         }
 
-        // Check expiry
-        if (file.settings?.expires_at && new Date(file.settings.expires_at) < new Date()) {
-            return NextResponse.json({ error: 'File link has expired' }, { status: 410 })
+        // 3. Check Access Permission (if no password and not public)
+        else if (!isPasswordCheck) {
+            // Check allowed recipients
+            const allowedRecipients = settings.allowed_recipients || []
+
+            if (allowedRecipients.includes(viewerEmail)) {
+                // Auto-allowed
+            } else {
+                // Must have approved access request
+                const { data: access } = await supabase
+                    .from('access_requests')
+                    .select('id')
+                    .eq('file_id', fileId)
+                    .eq('viewer_email', viewerEmail)
+                    .eq('status', 'approved')
+                    .limit(1)
+
+                if (!access?.length) {
+                    return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+                }
+            }
         }
 
-        // Get key shards
-        const { data: shards, error: shardsError } = await supabase
+        // --- DECRYPTION ---
+
+        // Get shards
+        const { data: shards } = await supabase
             .from('key_shards')
-            .select('shard_index, shard_data')
+            .select('shard_data')
             .eq('file_id', fileId)
-            .eq('is_destroyed', false)
             .order('shard_index')
 
-        if (shardsError || !shards || shards.length < 4) {
-            return NextResponse.json({ error: 'Decryption keys unavailable' }, { status: 403 })
+        if (!shards || shards.length < 4) return NextResponse.json({ error: 'Keys missing' }, { status: 500 })
+
+        // Reconstruct key
+        let keyBuffer = Buffer.from(shards[0].shard_data, 'hex')
+        for (let i = 1; i < shards.length; i++) {
+            const shard = Buffer.from(shards[i].shard_data, 'hex')
+            keyBuffer = Buffer.from(keyBuffer.map((b, idx) => b ^ shard[idx]))
         }
+        const encryptionKey = keyBuffer.toString('hex')
 
-        // Reconstruct encryption key from shards (XOR method)
-        const reconstructKey = (shards: { shard_data: string }[]): string => {
-            let key = Buffer.from(shards[0].shard_data, 'hex')
-            for (let i = 1; i < shards.length; i++) {
-                const shard = Buffer.from(shards[i].shard_data, 'hex')
-                key = Buffer.from(key.map((b, idx) => b ^ shard[idx]))
-            }
-            return key.toString('hex')
-        }
+        // Download & Decrypt
+        const { data: encryptedData } = await supabase.storage.from('protected-files').download(file.storage_path)
+        if (!encryptedData) return NextResponse.json({ error: 'Download failed' }, { status: 500 })
 
-        const encryptionKey = reconstructKey(shards)
-
-        // Download encrypted file from storage
-        const { data: encryptedData, error: downloadError } = await supabase.storage
-            .from('protected-files')
-            .download(file.storage_path)
-
-        if (downloadError || !encryptedData) {
-            console.error('Download error:', downloadError)
-            return NextResponse.json({ error: 'Failed to download file' }, { status: 500 })
-        }
-
-        // Decrypt file
         const encryptedBuffer = Buffer.from(await encryptedData.arrayBuffer())
-        const iv = Buffer.from(file.iv, 'hex')
-        const authTag = Buffer.from(file.auth_tag, 'hex')
+        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey, 'hex'), Buffer.from(file.iv, 'hex'))
+        decipher.setAuthTag(Buffer.from(file.auth_tag, 'hex'))
+        const decrypted = Buffer.concat([decipher.update(encryptedBuffer), decipher.final()])
 
-        const decipher = crypto.createDecipheriv(
-            'aes-256-gcm',
-            Buffer.from(encryptionKey, 'hex'),
-            iv
-        )
-        decipher.setAuthTag(authTag)
-
-        const decrypted = Buffer.concat([
-            decipher.update(encryptedBuffer),
-            decipher.final()
-        ])
-
-        // Get IP info for logging
-        const ipInfo = await getIPInfo(clientIp)
-
-        // Log the view with full info
+        // Log View
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || '::1'
+        const ipInfo = await getIPInfo(ip)
         await supabase.from('access_logs').insert({
             file_id: fileId,
             action: 'view',
-            ip_address: clientIp,
-            location: {
-                city: ipInfo.city || 'Unknown',
-                country: ipInfo.country || 'Unknown',
-                countryCode: ipInfo.countryCode || 'XX',
-                lat: ipInfo.lat || 0,
-                lon: ipInfo.lon || 0,
-                isp: ipInfo.isp || 'Unknown',
-                userAgent: userAgent.substring(0, 200)
-            },
+            ip_address: ip,
+            location: { ...ipInfo, viewer_email: viewerEmail },
             timestamp: new Date().toISOString()
         })
 
-        // Increment view count on file (using settings JSONB or a separate call)
-        const currentViews = file.settings?.total_views || 0
-        await supabase
-            .from('files')
-            .update({
-                settings: {
-                    ...file.settings,
-                    total_views: currentViews + 1,
-                    last_viewed: new Date().toISOString()
-                }
-            })
-            .eq('id', fileId)
+        // Increment view count
+        const newViews = (settings.total_views || 0) + 1
+        await supabase.from('files').update({
+            settings: { ...settings, total_views: newViews }
+        }).eq('id', fileId)
 
-        // Return decrypted file
+        if (settings.max_views && newViews >= settings.max_views) {
+            // Auto destroy if limit reached? Or just disable?
+            // For now just note it. Could add logic to block future views.
+        }
+
         return new NextResponse(decrypted, {
             headers: {
-                'Content-Type': file.mime_type || 'application/octet-stream',
+                'Content-Type': file.mime_type,
                 'Content-Disposition': `inline; filename="${file.original_name}"`,
-                'Cache-Control': 'no-store, no-cache, must-revalidate',
-                'X-Content-Type-Options': 'nosniff',
+                'Cache-Control': 'no-store'
             }
         })
 
-    } catch (error) {
-        console.error('Decrypt error:', error)
+    } catch (e) {
+        console.error(e)
         return NextResponse.json({ error: 'Decryption failed' }, { status: 500 })
     }
 }

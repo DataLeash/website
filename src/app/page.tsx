@@ -281,7 +281,7 @@ export default function HomePage() {
                       const supabase = createClient();
                       await supabase.auth.signInWithOAuth({
                         provider: 'google',
-                        options: { redirectTo: `${window.location.origin}/dashboard` },
+                        options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
                       });
                     }}
                     className="w-12 h-12 bg-white hover:bg-gray-50 rounded-full font-bold transition-all flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] hover:scale-110"
@@ -301,7 +301,7 @@ export default function HomePage() {
                       const supabase = createClient();
                       await supabase.auth.signInWithOAuth({
                         provider: 'github',
-                        options: { redirectTo: `${window.location.origin}/dashboard` },
+                        options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
                       });
                     }}
                     className="w-12 h-12 bg-slate-800 hover:bg-slate-700 rounded-full font-bold transition-all flex items-center justify-center border border-slate-600 shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.15)] hover:scale-110"
@@ -318,7 +318,7 @@ export default function HomePage() {
                       const supabase = createClient();
                       await supabase.auth.signInWithOAuth({
                         provider: 'discord',
-                        options: { redirectTo: `${window.location.origin}/dashboard` },
+                        options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
                       });
                     }}
                     className="w-12 h-12 bg-[#5865F2] hover:bg-[#4752C4] rounded-full font-bold transition-all flex items-center justify-center shadow-[0_0_15px_rgba(88,101,242,0.3)] hover:shadow-[0_0_25px_rgba(88,101,242,0.5)] hover:scale-110"

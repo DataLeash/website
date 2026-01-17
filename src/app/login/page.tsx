@@ -195,10 +195,11 @@ function LoginContent() {
 
     const handleGoogleSignIn = async () => {
         const supabase = createClient();
+        const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`;
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}${redirectUrl}`,
+                redirectTo: callbackUrl,
             },
         });
         if (error) {
@@ -208,10 +209,11 @@ function LoginContent() {
 
     const handleGitHubSignIn = async () => {
         const supabase = createClient();
+        const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`;
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'github',
             options: {
-                redirectTo: `${window.location.origin}${redirectUrl}`,
+                redirectTo: callbackUrl,
             },
         });
         if (error) {
@@ -221,10 +223,11 @@ function LoginContent() {
 
     const handleDiscordSignIn = async () => {
         const supabase = createClient();
+        const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`;
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'discord',
             options: {
-                redirectTo: `${window.location.origin}${redirectUrl}`,
+                redirectTo: callbackUrl,
             },
         });
         if (error) {

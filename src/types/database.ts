@@ -11,6 +11,7 @@ export interface User {
     updated_at: string
     is_active: boolean
     trust_score: number
+    is_admin?: boolean
     anonymous_id?: string
     blocked_countries?: string[] // ISO 2-letter codes
 }

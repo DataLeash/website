@@ -37,21 +37,31 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
             }
         }
 
-        // Get user tier from database
-        const { data: userData } = await supabase
-            .from('users')
-            .select('tier, tier_started_at, tier_expires_at, kofi_subscription_id, is_admin')
-            .eq('id', user.id)
-            .single()
+        // Check if user is admin from env FIRST (most reliable)
+        const userEmail = user.email?.toLowerCase() || ''
+        const isAdminFromEnv = ADMIN_EMAILS.includes(userEmail)
 
-        const tier = (userData?.tier || 'free') as 'free' | 'pro' | 'enterprise'
-        const tierExpiresAt = userData?.tier_expires_at
+        // Get user tier from database (defensive - handle missing columns)
+        let userData: Record<string, unknown> | null = null
+        try {
+            const { data } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single()
+            userData = data
+        } catch (dbError) {
+            console.error('DB query error:', dbError)
+        }
+
+        const tier = (userData?.tier as string || 'free') as 'free' | 'pro' | 'enterprise'
+        const tierExpiresAt = userData?.tier_expires_at as string | null
         const isExpired = tierExpiresAt ? new Date(tierExpiresAt) < new Date() : false
         const effectiveTier = isExpired ? 'free' : tier
 
         // Check if user is admin (from DB or env)
-        const isAdmin = userData?.is_admin === true ||
-            ADMIN_EMAILS.includes(user.email?.toLowerCase() || '')
+        const isAdminFromDB = userData?.is_admin === true
+        const isAdmin = isAdminFromDB || isAdminFromEnv
 
         return {
             user: { id: user.id, email: user.email || '' },
@@ -60,7 +70,7 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
                 isExpired,
                 effectiveTier,
                 tierExpiresAt,
-                hasSubscription: !!userData?.kofi_subscription_id
+                hasSubscription: !!(userData?.kofi_subscription_id)
             },
             isAdmin,
             error: null
