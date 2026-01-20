@@ -27,12 +27,29 @@ export default function AdminOverviewPage() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
 
+    useEffect(() => {
+        fetchData()
+    }, [])
+
     const fetchData = async () => {
+        setLoading(true)
         try {
+            // Check auth first to fail fast
+            const verifyRes = await fetch('/api/admin/verify')
+            if (verifyRes.status === 401 || verifyRes.status === 403) {
+                window.location.href = '/login?error=admin_access_required'
+                return
+            }
+
             const [usersRes, logsRes] = await Promise.all([
                 fetch('/api/admin/users?limit=1'),
                 fetch('/api/admin/logs?type=all&limit=10')
             ])
+
+            if (usersRes.status === 401 || usersRes.status === 403) {
+                window.location.href = '/login?error=session_expired'
+                return
+            }
 
             const usersData = await usersRes.json()
             const logsData = await logsRes.json()
@@ -75,10 +92,6 @@ export default function AdminOverviewPage() {
             setRefreshing(false)
         }
     }
-
-    useEffect(() => {
-        fetchData()
-    }, [])
 
     const handleRefresh = () => {
         setRefreshing(true)

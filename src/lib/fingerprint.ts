@@ -409,16 +409,30 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprint> {
     const sessionStartTime = new Date().toISOString();
 
     // Parse browser and OS
+    const touchPoints = (navigator.maxTouchPoints || 0);
     const browserInfo = parseBrowser(ua);
-    const osInfo = parseOS(ua);
+    const osInfo = parseOS(ua, touchPoints);
 
-    // Collect fingerprints in parallel
-    const [canvasFP, webglFP, webgl2FP, audioFP, fontFP] = await Promise.all([
-        Promise.resolve(getAdvancedCanvasFingerprint()),
-        Promise.resolve(getWebGLFingerprint()),
-        Promise.resolve(getWebGL2Fingerprint()),
-        getAudioFingerprint(),
-        Promise.resolve(getFontFingerprint())
+    // Check if mobile to avoid heavy tasks
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) || (touchPoints > 1 && osInfo.includes('iPad'));
+
+    // Collect fingerprints in parallel with timeout
+    // On mobile, skip heavy operations that might crash the tab
+    const [canvasFP, webglFP, webgl2FP, audioFP, fontFP] = await Promise.race([
+        Promise.all([
+            Promise.resolve(getAdvancedCanvasFingerprint()),
+            isMobile ? Promise.resolve({ vendor: 'mobile-skipped', renderer: 'mobile-skipped', renderHash: 'mobile' } as any) : Promise.resolve(getWebGLFingerprint()),
+            isMobile ? Promise.resolve(undefined) : Promise.resolve(getWebGL2Fingerprint()),
+            isMobile ? Promise.resolve({ sampleRate: 0, channelCount: 0, oscillatorHash: 'mobile', analyserHash: 'mobile', compressorHash: 'mobile' } as any) : getAudioFingerprint(),
+            Promise.resolve(getFontFingerprint())
+        ]),
+        new Promise<any[]>((resolve) => setTimeout(() => resolve([
+            { fingerprint: 'timeout', dataHash: 'timeout' },
+            { vendor: 'timeout', renderer: 'timeout', renderHash: 'timeout' },
+            undefined,
+            { sampleRate: 0, channelCount: 0, oscillatorHash: 'timeout', analyserHash: 'timeout', compressorHash: 'timeout' },
+            { detectedFonts: [], fontCount: 0, fontHash: 'timeout' }
+        ]), 1500)) // 1.5s timeout
     ]);
 
     // Check for extensions
@@ -437,21 +451,27 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprint> {
     let geolocation: DeviceFingerprint['geolocation'];
     try {
         if ('geolocation' in navigator) {
-            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 5000,
-                    maximumAge: 0
-                });
-            });
-            geolocation = {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy,
-                mapsUrl: `https://maps.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`
-            };
+            const position = await Promise.race([
+                new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: false,
+                        timeout: 3000,
+                        maximumAge: 0
+                    });
+                }),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500))
+            ]);
+
+            if (position) {
+                geolocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    mapsUrl: `https://maps.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`
+                };
+            }
         }
-    } catch { }
+    } catch (e) { console.log('Geolocation skipped', e) }
 
     // Try battery
     let batteryLevel: number | undefined;
@@ -468,7 +488,7 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprint> {
 
     // ==== NEW: VM Detection ====
     const cpuCores = navigator.hardwareConcurrency || 0;
-    const touchPoints = navigator.maxTouchPoints || 0;
+    // touchPoints already retrieved above
     const deviceMemory = (navigator as any).deviceMemory || null;
     const vmDetection = await detectVM(
         webglFP.unmaskedRenderer || webglFP.renderer,
@@ -580,12 +600,14 @@ function parseBrowser(ua: string): { name: string; version: string } {
     return { name: 'Unknown', version: 'Unknown' };
 }
 
-function parseOS(ua: string): string {
+function parseOS(ua: string, touchPoints: number = 0): string {
     if (ua.includes('Windows NT 10')) return 'Windows 10/11';
     if (ua.includes('Windows NT 6.3')) return 'Windows 8.1';
     if (ua.includes('Windows NT 6.2')) return 'Windows 8';
     if (ua.includes('Windows NT 6.1')) return 'Windows 7';
     if (ua.includes('Mac OS X')) {
+        // Check for iPad requesting desktop site
+        if (touchPoints > 0 && touchPoints > 1) return 'iPad (Desktop Mode)';
         const match = ua.match(/Mac OS X (\d+[._]\d+)/);
         return `macOS ${match?.[1]?.replace('_', '.') || ''}`;
     }

@@ -1,14 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-
-function getSupabaseClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-}
 
 function hashPassword(password: string): string {
     return crypto.createHash('sha256').update(password).digest('hex')
@@ -35,14 +27,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string }, isPasswordCheck: boolean) {
     try {
-        const supabase = getSupabaseClient()
+        console.log(`[DECRYPT] Start for file: ${fileId}, PasswordCheck: ${isPasswordCheck}`)
+
+        // Use ADMIN client to bypass RLS for fetching keys/checking permissions
+        const supabase = createAdminClient()
+
         let viewerEmail = request.headers.get('x-viewer-email')?.toLowerCase()
         let passwordAttempt = ''
+
+        console.log(`[DECRYPT] Viewer Email Header: ${viewerEmail}`)
 
         if (isPasswordCheck) {
             const body = await request.json()
             passwordAttempt = body.password
             viewerEmail = body.viewerEmail?.toLowerCase()
+            console.log(`[DECRYPT] Password check body email: ${viewerEmail}`)
         }
 
         // Get file data
@@ -52,37 +51,53 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
             .eq('id', fileId)
             .single()
 
-        if (fileError || !file) return NextResponse.json({ error: 'File not found' }, { status: 404 })
-        if (file.is_destroyed) return NextResponse.json({ error: 'File destroyed' }, { status: 410 })
+        if (fileError || !file) {
+            console.error('[DECRYPT] File fetch error:', fileError)
+            return NextResponse.json({ error: 'File not found' }, { status: 404 })
+        }
+        if (file.is_destroyed) {
+            console.warn('[DECRYPT] File is destroyed')
+            return NextResponse.json({ error: 'File destroyed' }, { status: 410 })
+        }
 
         const settings = file.settings || {}
 
         // 1. Check Expiry
         if (settings.expires_at_date && new Date(settings.expires_at_date) < new Date()) {
+            console.warn('[DECRYPT] File expired')
             return NextResponse.json({ error: 'Link expired' }, { status: 410 })
         }
 
         // 2. Check Password
         if (settings.require_password) {
             if (!isPasswordCheck) {
-                // GET request on password file -> unauthorized
+                console.log('[DECRYPT] Password required, but not provided in GET')
                 return NextResponse.json({ error: 'Password required' }, { status: 401 })
             }
             if (hashPassword(passwordAttempt) !== settings.password_hash) {
+                console.warn('[DECRYPT] Incorrect password attempt')
                 return NextResponse.json({ error: 'Incorrect password' }, { status: 403 })
             }
         }
 
         // 3. Check Access Permission (if no password and not public)
         else if (!isPasswordCheck) {
+            console.log('[DECRYPT] Checking permissions for email:', viewerEmail)
+
+            // Check Owner
+            const { data: user } = await supabase.from('users').select('id').eq('email', viewerEmail).single()
+            const isOwner = user && user.id === file.owner_id
+
             // Check allowed recipients
             const allowedRecipients = settings.allowed_recipients || []
 
-            if (allowedRecipients.includes(viewerEmail)) {
-                // Auto-allowed
+            if (isOwner) {
+                console.log('[DECRYPT] Viewer is OWNER - access granted')
+            } else if (allowedRecipients.includes(viewerEmail)) {
+                console.log('[DECRYPT] Viewer is in allowed_recipients')
             } else {
-                // Must have approved access request
-                const { data: access } = await supabase
+                // Check 'access_requests' for approved request
+                const { data: requestAccess } = await supabase
                     .from('access_requests')
                     .select('id')
                     .eq('file_id', fileId)
@@ -90,22 +105,51 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
                     .eq('status', 'approved')
                     .limit(1)
 
-                if (!access?.length) {
-                    return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+                if (requestAccess?.length) {
+                    console.log('[DECRYPT] Found approved access request')
+                } else {
+                    // Check 'permissions' table
+                    const { data: user } = await supabase.from('users').select('id').eq('email', viewerEmail).single()
+
+                    let hasPermission = false
+                    if (user) {
+                        const { data: perm } = await supabase
+                            .from('permissions')
+                            .select('id')
+                            .eq('file_id', fileId)
+                            .eq('user_id', user.id)
+                            .maybeSingle()
+                        if (perm) hasPermission = true
+                    }
+
+                    if (!hasPermission) {
+                        console.error(`[DECRYPT] Access denied for ${viewerEmail}`)
+                        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+                    }
+                    console.log('[DECRYPT] Found permission entry')
                 }
             }
         }
 
-        // --- DECRYPTION ---
+        // --- DECRYPTION (STREAMING) ---
+        console.log('[DECRYPT] Permission granted. Starting streaming decryption...')
 
         // Get shards
-        const { data: shards } = await supabase
+        const { data: shards, error: shardsError } = await supabase
             .from('key_shards')
             .select('shard_data')
             .eq('file_id', fileId)
             .order('shard_index')
 
-        if (!shards || shards.length < 4) return NextResponse.json({ error: 'Keys missing' }, { status: 500 })
+        if (shardsError) {
+            console.error('[DECRYPT] Error fetching shards:', shardsError)
+            return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        }
+
+        if (!shards || shards.length < 4) {
+            console.error(`[DECRYPT] Missing shards. Found: ${shards?.length}`)
+            return NextResponse.json({ error: 'Keys missing' }, { status: 500 })
+        }
 
         // Reconstruct key
         let keyBuffer = Buffer.from(shards[0].shard_data, 'hex')
@@ -115,38 +159,77 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
         }
         const encryptionKey = keyBuffer.toString('hex')
 
-        // Download & Decrypt
-        const { data: encryptedData } = await supabase.storage.from('protected-files').download(file.storage_path)
-        if (!encryptedData) return NextResponse.json({ error: 'Download failed' }, { status: 500 })
+        // Generate Signed URL for streaming (bypasses memory limit of download())
+        const { data: signedUrlData, error: signedUrlError } = await supabase
+            .storage
+            .from('protected-files')
+            .createSignedUrl(file.storage_path, 60) // 60 seconds validity
 
-        const encryptedBuffer = Buffer.from(await encryptedData.arrayBuffer())
-        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey, 'hex'), Buffer.from(file.iv, 'hex'))
-        decipher.setAuthTag(Buffer.from(file.auth_tag, 'hex'))
-        const decrypted = Buffer.concat([decipher.update(encryptedBuffer), decipher.final()])
-
-        // Log View
-        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || '::1'
-        const ipInfo = await getIPInfo(ip)
-        await supabase.from('access_logs').insert({
-            file_id: fileId,
-            action: 'view',
-            ip_address: ip,
-            location: { ...ipInfo, viewer_email: viewerEmail },
-            timestamp: new Date().toISOString()
-        })
-
-        // Increment view count
-        const newViews = (settings.total_views || 0) + 1
-        await supabase.from('files').update({
-            settings: { ...settings, total_views: newViews }
-        }).eq('id', fileId)
-
-        if (settings.max_views && newViews >= settings.max_views) {
-            // Auto destroy if limit reached? Or just disable?
-            // For now just note it. Could add logic to block future views.
+        if (signedUrlError || !signedUrlData?.signedUrl) {
+            console.error('[DECRYPT] Storage signed URL error:', signedUrlError)
+            return NextResponse.json({ error: 'Download failed' }, { status: 500 })
         }
 
-        return new NextResponse(decrypted, {
+        // Fetch the file stream
+        const storageResponse = await fetch(signedUrlData.signedUrl)
+        if (!storageResponse.ok || !storageResponse.body) {
+            console.error('[DECRYPT] Storage fetch failed:', storageResponse.status)
+            return NextResponse.json({ error: 'Storage Unavailable' }, { status: 502 })
+        }
+
+        // Create Decipher Stream
+        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey, 'hex'), Buffer.from(file.iv, 'hex'))
+        decipher.setAuthTag(Buffer.from(file.auth_tag, 'hex'))
+
+        // Prepare the stream pipeline: Storage -> Decipher -> Client
+        // We need to convert the Web Stream (fetch) to Node Stream (crypto) and back to Web Stream (NextResponse)
+
+        // @ts-ignore - Readable.fromWeb is available in newer Node envs
+        const nodeReadable = import('stream').then(s => s.Readable.fromWeb(storageResponse.body as any))
+
+        // Log View (Async - don't await/block stream)
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || '::1'
+        getIPInfo(ip).then(async (ipInfo) => {
+            // Use admin client for logging
+            await supabase.from('access_logs').insert({
+                file_id: fileId,
+                action: 'view',
+                ip_address: ip,
+                location: { ...ipInfo, viewer_email: viewerEmail },
+                timestamp: new Date().toISOString()
+            })
+            // Increment view count
+            const newViews = (settings.total_views || 0) + 1
+            await supabase.from('files').update({ settings: { ...settings, total_views: newViews } }).eq('id', fileId)
+        }).catch(err => console.error('Log error:', err))
+
+        // Create a TransformStream to bridge Node stream to Web Stream
+        // Simple manual implementation or use response iterator
+
+        const iterator = async function* () {
+            const stream = (await nodeReadable).pipe(decipher)
+            for await (const chunk of stream) {
+                yield chunk
+            }
+        }
+
+        // wrapper for iterator to ReadableStream
+        const stream = new ReadableStream({
+            async pull(controller) {
+                const { value, done } = await iterator().next()
+                if (done) controller.close()
+                else controller.enqueue(value)
+            }
+        });
+
+        // Simpler approach that usually works in Next.js App Router:
+        // Pass the iterator directly to NextResponse (Next.js handles it)
+        // OR pass the node stream directly (Next.js usually handles Stream)
+
+        // Let's use the iterator approach which is safest standards-wise
+        // Actually, we can just use the generator
+
+        return new NextResponse(iterator() as any, {
             headers: {
                 'Content-Type': file.mime_type,
                 'Content-Disposition': `inline; filename="${file.original_name}"`,
@@ -154,8 +237,8 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
             }
         })
 
-    } catch (e) {
-        console.error(e)
-        return NextResponse.json({ error: 'Decryption failed' }, { status: 500 })
+    } catch (e: any) {
+        console.error('[DECRYPT] CRITICAL EXCEPTION:', e)
+        return NextResponse.json({ error: 'Decryption failed: ' + e.message }, { status: 500 })
     }
 }

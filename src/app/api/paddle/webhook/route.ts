@@ -9,7 +9,7 @@ const PADDLE_WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET!;
 
 // Verify webhook signature from Paddle
 function verifySignature(payload: string, signature: string, secret: string): boolean {
-    if (!secret) return true; // Skip verification if no secret set (for testing)
+    if (!secret) return false; // Security: Fail if secret is not configured
 
     try {
         // Paddle uses ts;h1=signature format

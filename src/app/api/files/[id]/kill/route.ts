@@ -58,6 +58,25 @@ export async function POST(
             .delete()
             .eq('file_id', fileId)
 
+        // 2b. Delete physical file from storage (Fix Storage Leak)
+        // Need to fetch storage_path first if not already fetched
+        const { data: fileWithStorage } = await supabase
+            .from('files')
+            .select('storage_path')
+            .eq('id', fileId)
+            .single()
+
+        if (fileWithStorage?.storage_path) {
+            const { error: storageError } = await supabase.storage
+                .from('protected-files')
+                .remove([fileWithStorage.storage_path])
+
+            if (storageError) {
+                console.error('Failed to remove file from storage:', storageError)
+                // Don't fail the request, but log it
+            }
+        }
+
         // 3. Kill all active sessions instantly
         await supabase
             .from('viewing_sessions')

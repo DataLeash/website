@@ -95,7 +95,7 @@ export default function ViewFilePage() {
             const data = await res.json();
 
             if (data.allowed) {
-                loadFileContent(); // Auto-approved!
+                loadFileContent(email); // Auto-approved! Pass email explicitly to avoid race condition
             } else {
                 setStep('request'); // Need to request access
             }
@@ -133,7 +133,7 @@ export default function ViewFilePage() {
 
             if (data.approved) {
                 // Instant approval (recipient)
-                loadFileContent();
+                loadFileContent(viewer.email);
             } else {
                 setAccessRequestStatus('sent');
                 // Poll for approval
@@ -142,7 +142,7 @@ export default function ViewFilePage() {
                     const statusData = await statusRes.json();
                     if (statusData.status === 'approved') {
                         clearInterval(pollInterval);
-                        loadFileContent();
+                        loadFileContent(viewer.email);
                     } else if (statusData.status === 'denied') {
                         clearInterval(pollInterval);
                         setStep('denied');
@@ -180,11 +180,12 @@ export default function ViewFilePage() {
         }
     };
 
-    const loadFileContent = async () => {
+    const loadFileContent = async (emailOverride?: string) => {
         setLoading(true);
+        const emailToUse = emailOverride || viewer?.email || '';
         try {
             const res = await fetch(`/api/files/${fileId}/decrypt`, {
-                headers: { 'x-viewer-email': viewer?.email || '' }
+                headers: { 'x-viewer-email': emailToUse }
             });
             if (!res.ok) throw new Error('Failed to load file');
             const blob = await res.blob();
@@ -322,12 +323,13 @@ export default function ViewFilePage() {
                 </div>
             </header>
 
-            <div className="flex-1 overflow-hidden bg-[#111] relative">
+            <div className="flex-1 relative w-full bg-[#111] overflow-hidden">
                 {fileContent && (
                     <iframe
                         src={fileContent}
-                        className="w-full h-full border-none"
-                        allow="autoplay"
+                        className="absolute inset-0 w-full h-full border-none"
+                        allow="autoplay; fullscreen"
+                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-presentation"
                     />
                 )}
 

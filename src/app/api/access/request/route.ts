@@ -36,8 +36,14 @@ export async function POST(request: NextRequest) {
 
         // Check if recipient is allowed (auto-approve)
         const settings = file.settings || {}
-        const allowedRecipients = settings.allowed_recipients || []
-        const isRecipient = allowedRecipients.includes(email)
+        // Normalize allowed recipients to lowercase to ensure case-insensitive matching
+        const allowedRecipients = (settings.allowed_recipients || []).map((r: string) => r.toLowerCase())
+
+        // Check if owner
+        const { data: user } = await supabase.from('users').select('id').eq('email', email).single()
+        const isOwner = user && user.id === file.owner_id
+
+        const isRecipient = allowedRecipients.includes(email) || isOwner
 
         if (checkOnly) {
             // Just checking if auto-allowed
@@ -99,6 +105,8 @@ export async function POST(request: NextRequest) {
                         </p>
                     `
                 })
+            } else {
+                console.warn('[ACCESS] Skipping email notification: RESEND_API_KEY missing')
             }
         }
 
