@@ -84,24 +84,31 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
         else if (!isPasswordCheck) {
             console.log('[DECRYPT] Checking permissions for email:', viewerEmail)
 
+            // Require viewerEmail for non-password-protected files
+            if (!viewerEmail) {
+                console.error('[DECRYPT] No viewer email provided')
+                return NextResponse.json({ error: 'Viewer email required' }, { status: 400 })
+            }
+
             // Check Owner
-            const { data: user } = await supabase.from('users').select('id').eq('email', viewerEmail).single()
+            const { data: user } = await supabase.from('users').select('id').ilike('email', viewerEmail).single()
             const isOwner = user && user.id === file.owner_id
 
-            // Check allowed recipients
-            const allowedRecipients = settings.allowed_recipients || []
+            // Check allowed recipients (case-insensitive)
+            const allowedRecipients = (settings.allowed_recipients || []).map((r: string) => r.toLowerCase())
+            const viewerEmailLower = viewerEmail.toLowerCase()
 
             if (isOwner) {
                 console.log('[DECRYPT] Viewer is OWNER - access granted')
-            } else if (allowedRecipients.includes(viewerEmail)) {
+            } else if (allowedRecipients.includes(viewerEmailLower)) {
                 console.log('[DECRYPT] Viewer is in allowed_recipients')
             } else {
-                // Check 'access_requests' for approved request
+                // Check 'access_requests' for approved request (case-insensitive)
                 const { data: requestAccess } = await supabase
                     .from('access_requests')
                     .select('id')
                     .eq('file_id', fileId)
-                    .eq('viewer_email', viewerEmail)
+                    .ilike('viewer_email', viewerEmailLower)
                     .eq('status', 'approved')
                     .limit(1)
 
@@ -109,8 +116,6 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
                     console.log('[DECRYPT] Found approved access request')
                 } else {
                     // Check 'permissions' table
-                    const { data: user } = await supabase.from('users').select('id').eq('email', viewerEmail).single()
-
                     let hasPermission = false
                     if (user) {
                         const { data: perm } = await supabase
@@ -123,7 +128,7 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
                     }
 
                     if (!hasPermission) {
-                        console.error(`[DECRYPT] Access denied for ${viewerEmail}`)
+                        console.error(`[DECRYPT] Access denied for ${viewerEmail} - no approved request or permission found`)
                         return NextResponse.json({ error: 'Access denied' }, { status: 403 })
                     }
                     console.log('[DECRYPT] Found permission entry')
