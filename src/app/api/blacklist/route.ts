@@ -15,7 +15,7 @@ export async function GET() {
             .from('blacklist')
             .select('*')
             .eq('owner_id', user.id)
-            .order('blocked_at', { ascending: false })
+            .order('created_at', { ascending: false })
 
         if (error) {
             console.error('Blacklist fetch error:', error)

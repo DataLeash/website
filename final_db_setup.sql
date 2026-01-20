@@ -124,6 +124,61 @@ CREATE TABLE IF NOT EXISTS public.admin_actions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Notifications table (for in-app notifications)
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    type VARCHAR(50),
+    title TEXT,
+    message TEXT,
+    file_id UUID REFERENCES public.files(id) ON DELETE SET NULL,
+    metadata JSONB DEFAULT '{}',
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Payments table (for transaction records)
+CREATE TABLE IF NOT EXISTS public.payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    stripe_subscription_id TEXT,
+    stripe_payment_id TEXT,
+    plan_id VARCHAR(50),
+    amount DECIMAL(10,2),
+    currency VARCHAR(10) DEFAULT 'USD',
+    status VARCHAR(50),
+    provider VARCHAR(50),
+    payment_method VARCHAR(50),
+    receipt_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Blacklist table (for blocked users/devices)
+CREATE TABLE IF NOT EXISTS public.blacklist (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    blocked_email VARCHAR(255),
+    blocked_name VARCHAR(255),
+    reason TEXT,
+    notes TEXT,
+    fingerprint JSONB,
+    ip_address INET,
+    ip_info JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Sessions fallback table (if viewing_sessions fails)
+CREATE TABLE IF NOT EXISTS public.sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    file_id UUID REFERENCES public.files(id) ON DELETE CASCADE,
+    viewer_email VARCHAR(255),
+    viewer_name VARCHAR(255),
+    ip_address INET,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 3. Add Missing Columns (Idempotent)
 DO $$ BEGIN
     -- Users table enhancements
@@ -136,14 +191,92 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'tier_expires_at') THEN
         ALTER TABLE public.users ADD COLUMN tier_expires_at TIMESTAMP WITH TIME ZONE;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'tier_started_at') THEN
+        ALTER TABLE public.users ADD COLUMN tier_started_at TIMESTAMP WITH TIME ZONE;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'account_status') THEN
         ALTER TABLE public.users ADD COLUMN account_status TEXT DEFAULT 'active';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'avatar_url') THEN
+        ALTER TABLE public.users ADD COLUMN avatar_url TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'anonymous_id') THEN
+        ALTER TABLE public.users ADD COLUMN anonymous_id VARCHAR(20);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'blocked_countries') THEN
+        ALTER TABLE public.users ADD COLUMN blocked_countries TEXT[] DEFAULT '{}';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone') THEN
+        ALTER TABLE public.users ADD COLUMN phone VARCHAR(50);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'qid') THEN
+        ALTER TABLE public.users ADD COLUMN qid VARCHAR(50);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone_verified') THEN
+        ALTER TABLE public.users ADD COLUMN phone_verified BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email_verified') THEN
+        ALTER TABLE public.users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'qid_verified') THEN
+        ALTER TABLE public.users ADD COLUMN qid_verified BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_active') THEN
+        ALTER TABLE public.users ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'trust_score') THEN
+        ALTER TABLE public.users ADD COLUMN trust_score INTEGER DEFAULT 0;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'kofi_email') THEN
         ALTER TABLE public.users ADD COLUMN kofi_email TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'payment_source') THEN
         ALTER TABLE public.users ADD COLUMN payment_source TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'paypal_subscription_id') THEN
+        ALTER TABLE public.users ADD COLUMN paypal_subscription_id TEXT;
+    END IF;
+
+    -- Access Requests enhancements
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'access_requests' AND column_name = 'device_info') THEN
+        ALTER TABLE public.access_requests ADD COLUMN device_info TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'access_requests' AND column_name = 'user_agent') THEN
+        ALTER TABLE public.access_requests ADD COLUMN user_agent TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'access_requests' AND column_name = 'ip_info') THEN
+        ALTER TABLE public.access_requests ADD COLUMN ip_info JSONB;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'access_requests' AND column_name = 'updated_at') THEN
+        ALTER TABLE public.access_requests ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    END IF;
+
+    -- Viewing Sessions enhancements
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'viewing_sessions' AND column_name = 'viewer_name') THEN
+        ALTER TABLE public.viewing_sessions ADD COLUMN viewer_name VARCHAR(255);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'viewing_sessions' AND column_name = 'ip_address') THEN
+        ALTER TABLE public.viewing_sessions ADD COLUMN ip_address INET;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'viewing_sessions' AND column_name = 'last_heartbeat') THEN
+        ALTER TABLE public.viewing_sessions ADD COLUMN last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'viewing_sessions' AND column_name = 'session_duration') THEN
+        ALTER TABLE public.viewing_sessions ADD COLUMN session_duration INTEGER;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'viewing_sessions' AND column_name = 'is_revoked') THEN
+        ALTER TABLE public.viewing_sessions ADD COLUMN is_revoked BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'viewing_sessions' AND column_name = 'revoked_reason') THEN
+        ALTER TABLE public.viewing_sessions ADD COLUMN revoked_reason TEXT;
+    END IF;
+
+    -- Admin Actions enhancements
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'admin_actions' AND column_name = 'details') THEN
+        ALTER TABLE public.admin_actions ADD COLUMN details JSONB;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'admin_actions' AND column_name = 'reason') THEN
+        ALTER TABLE public.admin_actions ADD COLUMN reason TEXT;
     END IF;
 END $$;
 

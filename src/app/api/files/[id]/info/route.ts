@@ -22,8 +22,13 @@ function generateAnonymousIdFallback(ownerId: string): string {
     return `DL-${hash.substring(0, 6).toUpperCase()}`
 }
 
-// Helper to get country from IP
-async function getCountryFromIp(ip: string): Promise<string | null> {
+// Helper to get country from IP - uses Vercel header first (fast), then external API fallback
+async function getCountryFromIp(ip: string, vercelCountry?: string | null): Promise<string | null> {
+    // Vercel provides country instantly - use it if available
+    if (vercelCountry) {
+        return vercelCountry;
+    }
+
     // Localhost / internal
     if (ip === '::1' || ip === '127.0.0.1') return 'US'; // Mock local as US
 
@@ -88,7 +93,9 @@ export async function GET(
             .single()
 
         // --- GEOFENCING CHECK ---
-        const viewerCountry = await getCountryFromIp(ip);
+        // Use Vercel's header if available (fast, reliable), fallback to external API
+        const vercelCountry = request.headers.get('x-vercel-ip-country');
+        const viewerCountry = await getCountryFromIp(ip, vercelCountry);
 
         // Fail Closed: If we can't determine country, and there ARE restrictions, BLOCK IT.
         // Use Array.isArray to safely check for actual block lists

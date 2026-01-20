@@ -56,7 +56,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ approved: true, message: 'Access granted' })
         }
 
-        // If not recipient, create request
+        // If not recipient, create request with full device info
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1'
+        const userAgent = request.headers.get('user-agent') || 'Unknown'
+        const deviceInfo = fingerprint?.os || fingerprint?.platform || 'Unknown Device'
+
         const { data: requestRecord, error: reqError } = await supabase
             .from('access_requests')
             .insert({
@@ -64,6 +68,9 @@ export async function POST(request: NextRequest) {
                 viewer_email: email,
                 viewer_name: viewerName || email,
                 fingerprint: fingerprint || {},
+                ip_address: ip,
+                device_info: deviceInfo,
+                user_agent: userAgent,
                 status: 'pending',
                 created_at: new Date().toISOString()
             })
