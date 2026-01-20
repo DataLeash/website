@@ -213,12 +213,21 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
             }
         }
 
-        // wrapper for iterator to ReadableStream
-        const stream = new ReadableStream({
+        // Create iterator instance ONCE, then call .next() on same instance
+        const gen = iterator();
+
+        const readableStream = new ReadableStream({
             async pull(controller) {
-                const { value, done } = await iterator().next()
-                if (done) controller.close()
-                else controller.enqueue(value)
+                try {
+                    const { value, done } = await gen.next()
+                    if (done) {
+                        controller.close()
+                    } else {
+                        controller.enqueue(value)
+                    }
+                } catch (err) {
+                    controller.error(err)
+                }
             }
         });
 

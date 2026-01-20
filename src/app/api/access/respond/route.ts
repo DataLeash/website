@@ -24,6 +24,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
         }
 
+        // userId is REQUIRED for authorization
+        if (!userId) {
+            return NextResponse.json({ error: 'userId required for authorization' }, { status: 400 })
+        }
+
         const supabase = getSupabaseClient()
 
         // Get access request
@@ -37,9 +42,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Request not found' }, { status: 404 })
         }
 
-        // Verify the user is the file owner (if userId provided)
-        if (userId && accessRequest.files.owner_id !== userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        // ALWAYS verify the user is the file owner
+        if (accessRequest.files.owner_id !== userId) {
+            return NextResponse.json({ error: 'Unauthorized - not file owner' }, { status: 403 })
         }
 
         // Update request status

@@ -1,16 +1,16 @@
-import { createClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { NextResponse, NextRequest } from 'next/server'
 import { analyzeSecurityThreat } from '@/lib/ai-security'
 
 // Use service role for session management (bypasses RLS)
-async function getSupabaseAdmin() {
-    return await createClient()
+function getSupabaseAdmin() {
+    return createAdminClient()
 }
 
 // POST /api/session/create - Create a new viewing session
 export async function POST(request: NextRequest) {
     try {
-        const supabase = await getSupabaseAdmin()
+        const supabase = getSupabaseAdmin()
         const body = await request.json()
 
         // Support both naming conventions

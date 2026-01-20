@@ -93,6 +93,26 @@ export async function DELETE(request: NextRequest) {
         const fileIds = userFiles?.map(f => f.id) || []
 
         if (fileIds.length > 0) {
+            // Get storage paths before deletion
+            const { data: filesWithPaths } = await supabase
+                .from('files')
+                .select('storage_path')
+                .in('id', fileIds);
+
+            // Delete actual files from storage (FIX: Storage Leak)
+            if (filesWithPaths && filesWithPaths.length > 0) {
+                const paths = filesWithPaths.map(f => f.storage_path).filter(Boolean);
+                if (paths.length > 0) {
+                    const { error: storageError } = await supabase.storage
+                        .from('protected-files')
+                        .remove(paths);
+                    if (storageError) {
+                        console.error('Chain kill storage deletion error:', storageError);
+                        // Continue anyway - DB cleanup is more important
+                    }
+                }
+            }
+
             // Revoke all permissions
             await supabase
                 .from('permissions')

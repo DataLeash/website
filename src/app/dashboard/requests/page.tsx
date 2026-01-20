@@ -111,12 +111,33 @@ function RequestsPageContent() {
     }, [user]);
 
     const fetchRequests = async () => {
+        if (!user?.id) {
+            setLoading(false);
+            return;
+        }
+
+        // First get all file IDs owned by this user
+        const { data: userFiles } = await supabase
+            .from('files')
+            .select('id')
+            .eq('owner_id', user.id);
+
+        if (!userFiles || userFiles.length === 0) {
+            setRequests([]);
+            setLoading(false);
+            return;
+        }
+
+        const fileIds = userFiles.map(f => f.id);
+
+        // Then fetch only access requests for those files
         const { data, error } = await supabase
             .from('access_requests')
             .select(`
                 *,
                 files(original_name)
             `)
+            .in('file_id', fileIds)
             .order('created_at', { ascending: false });
 
         if (!error && data) {
