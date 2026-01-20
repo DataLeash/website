@@ -91,9 +91,11 @@ export async function GET(
         const viewerCountry = await getCountryFromIp(ip);
 
         // Fail Closed: If we can't determine country, and there ARE restrictions, BLOCK IT.
-        // If no restrictions exist, we can allow (or block optionally, but usually allow).
-        const hasGlobalBlocks = owner?.blocked_countries && owner.blocked_countries.length > 0;
-        const hasFileBlocks = file.settings?.blocked_countries && file.settings.blocked_countries.length > 0;
+        // Use Array.isArray to safely check for actual block lists
+        const globalBlockList = Array.isArray(owner?.blocked_countries) ? owner.blocked_countries : [];
+        const fileBlockList = Array.isArray(file.settings?.blocked_countries) ? file.settings.blocked_countries : [];
+        const hasGlobalBlocks = globalBlockList.length > 0;
+        const hasFileBlocks = fileBlockList.length > 0;
 
         if (!viewerCountry && (hasGlobalBlocks || hasFileBlocks)) {
             console.warn(`Geoblock triggered (Fail-Closed): ${ip} location unknown, but blocks are active.`);
@@ -104,7 +106,7 @@ export async function GET(
         }
 
         // Check Global Blocklist
-        if (viewerCountry && owner?.blocked_countries && owner.blocked_countries.includes(viewerCountry)) {
+        if (viewerCountry && globalBlockList.includes(viewerCountry)) {
             console.log(`Geoblock triggered: ${ip} (${viewerCountry}) blocked by owner global setting`);
             return NextResponse.json({
                 error: `Access Denied: This content is not available in your region (${viewerCountry})`,
@@ -113,7 +115,7 @@ export async function GET(
         }
 
         // Check File-Specific Blocklist
-        if (viewerCountry && file.settings?.blocked_countries && file.settings.blocked_countries.includes(viewerCountry)) {
+        if (viewerCountry && fileBlockList.includes(viewerCountry)) {
             console.log(`Geoblock triggered: ${ip} (${viewerCountry}) blocked by file setting`);
             return NextResponse.json({
                 error: `Access Denied: This content is not available in your region (${viewerCountry})`,
