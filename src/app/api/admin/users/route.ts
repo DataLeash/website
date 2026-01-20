@@ -223,16 +223,13 @@ export async function PATCH(request: NextRequest) {
             const meta = authUser.user_metadata || {}
 
             // Sync user to public table using UPSERT to handle conflicts
+            // Only include columns that exist in the schema: id, email, full_name
             const { data: newUser, error: createError } = await adminClient
                 .from('users')
                 .upsert({
                     id: user_id,
                     email: authUser.email || `user-${user_id.slice(0, 8)}@unknown.local`,
-                    full_name: meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Unknown',
-                    avatar_url: meta.avatar_url || meta.picture || null,
-                    tier: 'free',
-                    account_status: 'active',
-                    is_admin: false
+                    full_name: meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Unknown'
                 }, { onConflict: 'id' })
                 .select()
                 .single()
