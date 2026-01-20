@@ -45,14 +45,32 @@ export async function POST(request: NextRequest) {
 
         const isRecipient = allowedRecipients.includes(email) || isOwner
 
-        if (checkOnly) {
-            // Just checking if auto-allowed
-            return NextResponse.json({ allowed: isRecipient })
+        // Also check for approved access request (fixes: user approved but still can't decrypt)
+        let hasApprovedRequest = false
+        if (!isRecipient) {
+            const { data: approvedReq } = await supabase
+                .from('access_requests')
+                .select('id')
+                .eq('file_id', fileId)
+                .ilike('viewer_email', email)
+                .eq('status', 'approved')
+                .limit(1)
+            hasApprovedRequest = !!(approvedReq && approvedReq.length > 0)
         }
 
-        // If recipient, grant access immediately
-        if (isRecipient) {
-            await grantAccess(supabase, file.id, email, viewerName, 1) // Trust level 1
+        const hasAccess = isRecipient || hasApprovedRequest
+
+        if (checkOnly) {
+            // Just checking if auto-allowed OR already approved
+            return NextResponse.json({ allowed: hasAccess })
+        }
+
+        // If recipient OR already approved, grant access immediately
+        if (hasAccess) {
+            if (!hasApprovedRequest) {
+                // Only call grantAccess if they don't already have an approved request
+                await grantAccess(supabase, file.id, email, viewerName, 1) // Trust level 1
+            }
             return NextResponse.json({ approved: true, message: 'Access granted' })
         }
 
