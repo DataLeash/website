@@ -31,7 +31,20 @@ export function ActiveViewers() {
 
     const fetchSessions = useCallback(async () => {
         try {
+            // Check if user is authenticated before making the API call
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                // Not authenticated, skip the fetch
+                setLoading(false)
+                return
+            }
+
             const res = await fetch('/api/sessions/active')
+            if (res.status === 401) {
+                // Session expired or not authenticated
+                setSessions([])
+                return
+            }
             const data = await res.json()
             setSessions(data.sessions || [])
         } catch (err) {
@@ -39,7 +52,7 @@ export function ActiveViewers() {
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [supabase])
 
     useEffect(() => {
         fetchSessions()
