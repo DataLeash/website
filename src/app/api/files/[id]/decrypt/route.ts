@@ -187,81 +187,55 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
             return NextResponse.json({ error: 'Download failed' }, { status: 500 })
         }
 
-        // Fetch the file stream
+        // Fetch the ENTIRE file into memory (works for files under serverless limit ~50MB)
         const storageResponse = await fetch(signedUrlData.signedUrl)
-        if (!storageResponse.ok || !storageResponse.body) {
+        if (!storageResponse.ok) {
             console.error('[DECRYPT] Storage fetch failed:', storageResponse.status)
             return NextResponse.json({ error: 'Storage Unavailable' }, { status: 502 })
         }
 
-        // Create Decipher Stream
-        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey, 'hex'), Buffer.from(file.iv, 'hex'))
-        decipher.setAuthTag(Buffer.from(file.auth_tag, 'hex'))
+        // Get encrypted data as buffer
+        const encryptedBuffer = Buffer.from(await storageResponse.arrayBuffer())
+        console.log(`[DECRYPT] Fetched encrypted file: ${encryptedBuffer.length} bytes`)
 
-        // Prepare the stream pipeline: Storage -> Decipher -> Client
-        // We need to convert the Web Stream (fetch) to Node Stream (crypto) and back to Web Stream (NextResponse)
+        // Create Decipher and decrypt in one go
+        try {
+            const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey, 'hex'), Buffer.from(file.iv, 'hex'))
+            decipher.setAuthTag(Buffer.from(file.auth_tag, 'hex'))
 
-        // @ts-ignore - Readable.fromWeb is available in newer Node envs
-        const nodeReadable = import('stream').then(s => s.Readable.fromWeb(storageResponse.body as any))
+            const decrypted = Buffer.concat([
+                decipher.update(encryptedBuffer),
+                decipher.final()
+            ])
 
-        // Log View (Async - don't await/block stream)
-        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || '::1'
-        getIPInfo(ip).then(async (ipInfo) => {
-            // Use admin client for logging
-            await supabase.from('access_logs').insert({
-                file_id: fileId,
-                action: 'view',
-                ip_address: ip,
-                location: { ...ipInfo, viewer_email: viewerEmail },
-                timestamp: new Date().toISOString()
-            })
-            // Increment view count
-            const newViews = (settings.total_views || 0) + 1
-            await supabase.from('files').update({ settings: { ...settings, total_views: newViews } }).eq('id', fileId)
-        }).catch(err => console.error('Log error:', err))
+            console.log(`[DECRYPT] Decrypted successfully: ${decrypted.length} bytes, first 4 bytes: ${decrypted.slice(0, 4).toString('hex')}`)
 
-        // Create a TransformStream to bridge Node stream to Web Stream
-        // Simple manual implementation or use response iterator
+            // Log View (Async - don't block response)
+            const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || '::1'
+            getIPInfo(ip).then(async (ipInfo) => {
+                await supabase.from('access_logs').insert({
+                    file_id: fileId,
+                    action: 'view',
+                    ip_address: ip,
+                    location: { ...ipInfo, viewer_email: viewerEmail },
+                    timestamp: new Date().toISOString()
+                })
+                const newViews = (settings.total_views || 0) + 1
+                await supabase.from('files').update({ settings: { ...settings, total_views: newViews } }).eq('id', fileId)
+            }).catch(err => console.error('Log error:', err))
 
-        const iterator = async function* () {
-            const stream = (await nodeReadable).pipe(decipher)
-            for await (const chunk of stream) {
-                yield chunk
-            }
-        }
-
-        // Create iterator instance ONCE, then call .next() on same instance
-        const gen = iterator();
-
-        const readableStream = new ReadableStream({
-            async pull(controller) {
-                try {
-                    const { value, done } = await gen.next()
-                    if (done) {
-                        controller.close()
-                    } else {
-                        controller.enqueue(value)
-                    }
-                } catch (err) {
-                    controller.error(err)
+            return new NextResponse(decrypted, {
+                headers: {
+                    'Content-Type': file.mime_type,
+                    'Content-Disposition': `inline; filename="${file.original_name}"`,
+                    'Content-Length': String(decrypted.length),
+                    'Cache-Control': 'no-store'
                 }
-            }
-        });
-
-        // Simpler approach that usually works in Next.js App Router:
-        // Pass the iterator directly to NextResponse (Next.js handles it)
-        // OR pass the node stream directly (Next.js usually handles Stream)
-
-        // Let's use the iterator approach which is safest standards-wise
-        // Actually, we can just use the generator
-
-        return new NextResponse(iterator() as any, {
-            headers: {
-                'Content-Type': file.mime_type,
-                'Content-Disposition': `inline; filename="${file.original_name}"`,
-                'Cache-Control': 'no-store'
-            }
-        })
+            })
+        } catch (decryptError: any) {
+            console.error('[DECRYPT] Decryption failed:', decryptError.message)
+            return NextResponse.json({ error: 'Decryption failed - invalid key or corrupted data' }, { status: 500 })
+        }
 
     } catch (e: any) {
         console.error('[DECRYPT] CRITICAL EXCEPTION:', e)
