@@ -65,8 +65,8 @@ export default function ViewFilePage() {
                     if (fileData.settings?.require_password) {
                         setStep('password');
                     } else {
-                        // Try to auto-access (for recipients)
-                        checkAccess(user.email!);
+                        // Try to auto-access (for recipients) - pass user directly to avoid race condition
+                        checkAccess(user.email!, user.id);
                     }
                 }
             } catch (err: any) {
@@ -78,7 +78,7 @@ export default function ViewFilePage() {
         init();
     }, [fileId]);
 
-    const checkAccess = async (email: string) => {
+    const checkAccess = async (email: string, userId?: string) => {
         try {
             const fingerprint = await collectDeviceFingerprint();
             const res = await fetch('/api/access/request', {
@@ -96,7 +96,7 @@ export default function ViewFilePage() {
             const data = await res.json();
 
             if (data.allowed) {
-                loadFileContent(email); // Auto-approved! Pass email explicitly to avoid race condition
+                loadFileContent(email, userId); // Pass both email and userId directly
             } else {
                 setStep('request'); // Need to request access
             }
@@ -181,22 +181,28 @@ export default function ViewFilePage() {
         }
     };
 
-    const loadFileContent = async (emailOverride?: string) => {
+    const loadFileContent = async (emailOverride?: string, userIdOverride?: string) => {
         setLoading(true);
         const emailToUse = emailOverride || viewer?.email || '';
+        const userIdToUse = userIdOverride || viewer?.id || '';
         try {
             const res = await fetch(`/api/files/${fileId}/decrypt`, {
                 headers: {
                     'x-viewer-email': emailToUse,
-                    'x-viewer-id': viewer?.id || ''
+                    'x-viewer-id': userIdToUse
                 }
             });
-            if (!res.ok) throw new Error('Failed to load file');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('[VIEWER] Decrypt failed:', res.status, errorData);
+                throw new Error(errorData.error || 'Failed to load file');
+            }
             const blob = await res.blob();
             setFileContent(URL.createObjectURL(blob));
             setStep('viewing');
-        } catch (e) {
-            setError('Could not decrypt file');
+        } catch (e: any) {
+            console.error('[VIEWER] Error:', e);
+            setError(e.message || 'Could not decrypt file');
         } finally {
             setLoading(false);
         }
