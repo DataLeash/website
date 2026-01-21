@@ -134,7 +134,11 @@ export default function ViewFilePage() {
 
             if (data.approved) {
                 // Instant approval (recipient)
-                loadFileContent(viewer.email);
+                loadFileContent(viewer.email, viewer.id);
+            } else if (data.error) {
+                console.error('[ACCESS] Request error:', data.error);
+                setError(data.error);
+                setAccessRequestStatus('');
             } else {
                 setAccessRequestStatus('sent');
                 // Poll for approval
@@ -143,7 +147,7 @@ export default function ViewFilePage() {
                     const statusData = await statusRes.json();
                     if (statusData.status === 'approved') {
                         clearInterval(pollInterval);
-                        loadFileContent(viewer.email);
+                        loadFileContent(viewer.email, viewer.id);
                     } else if (statusData.status === 'denied') {
                         clearInterval(pollInterval);
                         setStep('denied');
@@ -151,6 +155,7 @@ export default function ViewFilePage() {
                 }, 3000);
             }
         } catch (e) {
+            console.error('[ACCESS] Request failed:', e);
             setError('Failed to request access');
             setAccessRequestStatus('');
         }
