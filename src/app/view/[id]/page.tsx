@@ -42,29 +42,24 @@ export default function ViewFilePage() {
     const [fileContent, setFileContent] = useState<string | null>(null);
     const [accessRequestStatus, setAccessRequestStatus] = useState<string>('');
     const [screenshotBlocked, setScreenshotBlocked] = useState(false);
+    const [contentHidden, setContentHidden] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
+    const lastFrameTime = useRef<number>(0);
+    const frameDropCount = useRef<number>(0);
 
-    // Mobile Security: Screenshot detection, save blocking, zoom prevention
+    // AGGRESSIVE Mobile Security: Multi-layer screenshot/screen recording prevention
     useEffect(() => {
         if (step !== 'viewing') return;
 
-        // Prevent context menu (right-click / long-press save)
-        const preventContextMenu = (e: Event) => {
-            e.preventDefault();
-            return false;
-        };
-
-        // Prevent drag/drop of images
-        const preventDrag = (e: DragEvent) => {
-            e.preventDefault();
-            return false;
-        };
-
-        // Screenshot detection via visibility change (user switches apps to screenshot)
+        // ========================
+        // LAYER 1: Instant Content Hiding on ANY visibility change
+        // ========================
         const handleVisibilityChange = () => {
-            if (document.hidden) {
-                // User left the page - possible screenshot attempt
+            if (document.hidden || document.visibilityState !== 'visible') {
+                // INSTANTLY hide content - don't wait
+                setContentHidden(true);
                 setScreenshotBlocked(true);
+
                 // Log the attempt
                 fetch('/api/access/log', {
                     method: 'POST',
@@ -72,25 +67,129 @@ export default function ViewFilePage() {
                     body: JSON.stringify({
                         fileId,
                         action: 'screenshot_attempt',
-                        viewerEmail: viewer?.email
+                        viewerEmail: viewer?.email,
+                        timestamp: new Date().toISOString()
                     })
                 }).catch(() => { });
-
-                // Show blocked screen briefly, then restore
-                setTimeout(() => setScreenshotBlocked(false), 2000);
+            } else {
+                // Only restore after a delay when coming back
+                setTimeout(() => {
+                    setContentHidden(false);
+                    setScreenshotBlocked(false);
+                }, 500);
             }
         };
 
-        // Detect PrintScreen key on desktop
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))) {
+        // ========================
+        // LAYER 2: Window blur detection (catches iOS screenshot)
+        // ========================
+        const handleWindowBlur = () => {
+            setContentHidden(true);
+            setScreenshotBlocked(true);
+            // Restore after delay
+            setTimeout(() => {
+                if (document.hasFocus()) {
+                    setContentHidden(false);
+                    setScreenshotBlocked(false);
+                }
+            }, 1000);
+        };
+
+        const handleWindowFocus = () => {
+            setTimeout(() => {
+                setContentHidden(false);
+                setScreenshotBlocked(false);
+            }, 300);
+        };
+
+        // ========================
+        // LAYER 3: Screen Recording Detection via Frame Rate Drop
+        // iOS screen recording causes frame drops
+        // ========================
+        let animationFrameId: number;
+        const detectScreenRecording = () => {
+            const now = performance.now();
+            const delta = now - lastFrameTime.current;
+
+            // Screen recording typically causes >50ms frame gaps
+            if (lastFrameTime.current > 0 && delta > 50) {
+                frameDropCount.current++;
+
+                // Multiple frame drops = likely recording
+                if (frameDropCount.current > 3) {
+                    setContentHidden(true);
+                    setScreenshotBlocked(true);
+                    // Log recording attempt
+                    fetch('/api/access/log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fileId,
+                            action: 'screen_recording_detected',
+                            viewerEmail: viewer?.email
+                        })
+                    }).catch(() => { });
+                }
+            } else {
+                frameDropCount.current = Math.max(0, frameDropCount.current - 1);
+            }
+
+            lastFrameTime.current = now;
+            animationFrameId = requestAnimationFrame(detectScreenRecording);
+        };
+        animationFrameId = requestAnimationFrame(detectScreenRecording);
+
+        // ========================
+        // LAYER 4: Touch-based screenshot detection (iOS power+volume)
+        // Multiple simultaneous touches = button combo
+        // ========================
+        const handleMultiTouch = (e: TouchEvent) => {
+            // 2+ touches could be screenshot gesture
+            if (e.touches.length >= 2) {
+                e.preventDefault();
+                setContentHidden(true);
+                setTimeout(() => setContentHidden(false), 500);
+            }
+        };
+
+        // ========================
+        // LAYER 5: Prevent all save/copy mechanisms
+        // ========================
+        const preventContextMenu = (e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        };
+
+        const preventDrag = (e: DragEvent) => {
+            e.preventDefault();
+            return false;
+        };
+
+        const preventCopy = (e: ClipboardEvent) => {
+            e.preventDefault();
+            return false;
+        };
+
+        const preventKeyboard = (e: KeyboardEvent) => {
+            // Block PrintScreen, Cmd+Shift+3/4/5 (Mac), Ctrl+P (print)
+            if (
+                e.key === 'PrintScreen' ||
+                (e.metaKey && e.shiftKey) ||
+                (e.ctrlKey && e.key === 'p') ||
+                (e.ctrlKey && e.key === 's')
+            ) {
                 e.preventDefault();
                 setScreenshotBlocked(true);
-                setTimeout(() => setScreenshotBlocked(false), 2000);
+                setContentHidden(true);
+                setTimeout(() => {
+                    setScreenshotBlocked(false);
+                    setContentHidden(false);
+                }, 2000);
             }
         };
 
-        // Prevent pinch-to-zoom on touch devices
+        // Prevent pinch-to-zoom
         const preventZoom = (e: TouchEvent) => {
             if (e.touches.length > 1) {
                 e.preventDefault();
@@ -107,21 +206,34 @@ export default function ViewFilePage() {
             lastTouchEnd = now;
         };
 
+        // ========================
         // Add all event listeners
-        document.addEventListener('contextmenu', preventContextMenu);
-        document.addEventListener('dragstart', preventDrag);
+        // ========================
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        document.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('blur', handleWindowBlur);
+        window.addEventListener('focus', handleWindowFocus);
+        window.addEventListener('pagehide', handleWindowBlur);
+        document.addEventListener('contextmenu', preventContextMenu, true);
+        document.addEventListener('dragstart', preventDrag);
+        document.addEventListener('copy', preventCopy);
+        document.addEventListener('keydown', preventKeyboard);
         document.addEventListener('touchstart', preventZoom, { passive: false });
+        document.addEventListener('touchstart', handleMultiTouch, { passive: false });
         document.addEventListener('touchend', preventDoubleTapZoom);
 
         // Cleanup
         return () => {
-            document.removeEventListener('contextmenu', preventContextMenu);
-            document.removeEventListener('dragstart', preventDrag);
+            cancelAnimationFrame(animationFrameId);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
-            document.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('blur', handleWindowBlur);
+            window.removeEventListener('focus', handleWindowFocus);
+            window.removeEventListener('pagehide', handleWindowBlur);
+            document.removeEventListener('contextmenu', preventContextMenu, true);
+            document.removeEventListener('dragstart', preventDrag);
+            document.removeEventListener('copy', preventCopy);
+            document.removeEventListener('keydown', preventKeyboard);
             document.removeEventListener('touchstart', preventZoom);
+            document.removeEventListener('touchstart', handleMultiTouch);
             document.removeEventListener('touchend', preventDoubleTapZoom);
         };
     }, [step, fileId, viewer?.email]);
@@ -446,8 +558,14 @@ export default function ViewFilePage() {
                 className="flex-1 relative w-full bg-[#111] overflow-hidden flex items-center justify-center"
                 onContextMenu={(e) => e.preventDefault()}
                 onDragStart={(e) => e.preventDefault()}
+                style={{
+                    // When hidden, blur and darken the content
+                    filter: contentHidden ? 'blur(50px) brightness(0)' : 'none',
+                    transition: 'filter 0.05s ease-out'
+                }}
             >
-                {fileContent && file?.mime_type?.startsWith('image/') ? (
+                {/* Content is completely hidden when screenshot detected */}
+                {!contentHidden && fileContent && file?.mime_type?.startsWith('image/') ? (
                     // Render images directly centered (not in iframe)
                     <img
                         src={fileContent}
@@ -461,7 +579,7 @@ export default function ViewFilePage() {
                             WebkitTouchCallout: 'none'
                         } as React.CSSProperties}
                     />
-                ) : fileContent ? (
+                ) : !contentHidden && fileContent ? (
                     // Non-image files use iframe
                     <iframe
                         src={fileContent}
@@ -471,16 +589,23 @@ export default function ViewFilePage() {
                     />
                 ) : null}
 
+                {/* When hidden, show black overlay */}
+                {contentHidden && (
+                    <div className="absolute inset-0 bg-black z-[60]" />
+                )}
+
                 {/* Watermark Overlay - More dense for mobile */}
-                <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden opacity-[0.04]">
-                    <div className="absolute inset-0 flex flex-wrap content-start justify-start" style={{ transform: 'rotate(-30deg) scale(1.5)', transformOrigin: 'center' }}>
-                        {Array.from({ length: 30 }).map((_, i) => (
-                            <div key={i} className="text-lg md:text-2xl font-bold text-white whitespace-nowrap m-4 md:m-8 select-none">
-                                {viewer?.email}
-                            </div>
-                        ))}
+                {!contentHidden && (
+                    <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden opacity-[0.04]">
+                        <div className="absolute inset-0 flex flex-wrap content-start justify-start" style={{ transform: 'rotate(-30deg) scale(1.5)', transformOrigin: 'center' }}>
+                            {Array.from({ length: 30 }).map((_, i) => (
+                                <div key={i} className="text-lg md:text-2xl font-bold text-white whitespace-nowrap m-4 md:m-8 select-none">
+                                    {viewer?.email}
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Invisible overlay to prevent touch interactions with content */}
                 <div
