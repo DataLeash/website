@@ -79,6 +79,8 @@ export async function middleware(request: NextRequest) {
         !request.nextUrl.pathname.startsWith('/api/newsletter') &&
         !request.nextUrl.pathname.startsWith('/api/upgrade-request') &&
         !request.nextUrl.pathname.startsWith('/api/chat') &&
+        !request.nextUrl.pathname.startsWith('/api/access/') &&  // Access request routes
+        !request.nextUrl.pathname.includes('/info') &&  // File info routes (public viewing)
         !request.nextUrl.pathname.includes('/decrypt')
 
     if ((isProtectedPath || isProtectedAPI) && !user) {
