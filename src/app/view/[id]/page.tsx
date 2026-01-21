@@ -47,185 +47,137 @@ export default function ViewFilePage() {
     const lastFrameTime = useRef<number>(0);
     const frameDropCount = useRef<number>(0);
 
-    // AGGRESSIVE Mobile Security: Multi-layer screenshot/screen recording prevention
+    // =================================================================
+    // HOLD-TO-VIEW SECURITY: Content only visible while touching screen
+    // User must lift finger to press screenshot buttons → content already hidden
+    // =================================================================
     useEffect(() => {
         if (step !== 'viewing') return;
 
-        const HIDE_DURATION = 5000; // Hide for 5 seconds when triggered
-        let hideTimeout: NodeJS.Timeout | null = null;
+        // Content is HIDDEN by default on mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            setContentHidden(true);
+        }
 
-        const hideContent = (reason: string) => {
+        // Track if user is currently touching screen
+        let isTouching = false;
+        let touchShowTimeout: NodeJS.Timeout | null = null;
+        let touchHideTimeout: NodeJS.Timeout | null = null;
+
+        const showContent = () => {
+            if (touchHideTimeout) clearTimeout(touchHideTimeout);
+            // Small delay before showing (prevents flash)
+            touchShowTimeout = setTimeout(() => {
+                setContentHidden(false);
+                setScreenshotBlocked(false);
+            }, 50);
+        };
+
+        const hideContentInstantly = () => {
+            if (touchShowTimeout) clearTimeout(touchShowTimeout);
+            // INSTANT hide - no delay
             setContentHidden(true);
             setScreenshotBlocked(true);
+        };
 
-            // Log the attempt
+        // ====================
+        // TOUCH HANDLERS - Core of the protection
+        // ====================
+        const handleTouchStart = (e: TouchEvent) => {
+            isTouching = true;
+
+            // Multi-touch = screenshot attempt - keep hidden
+            if (e.touches.length >= 2) {
+                hideContentInstantly();
+                return;
+            }
+
+            // Single touch = show content
+            showContent();
+        };
+
+        const handleTouchEnd = (e: TouchEvent) => {
+            // If any touch remains, keep showing
+            if (e.touches.length > 0) {
+                return;
+            }
+
+            // All touches released = INSTANTLY hide
+            isTouching = false;
+            hideContentInstantly();
+
+            // Log that content was hidden
             fetch('/api/access/log', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fileId,
-                    action: reason,
+                    action: 'touch_released',
                     viewerEmail: viewer?.email,
                     timestamp: new Date().toISOString()
                 })
             }).catch(() => { });
-
-            // Clear any existing timeout and set new one
-            if (hideTimeout) clearTimeout(hideTimeout);
-            hideTimeout = setTimeout(() => {
-                if (document.hasFocus() && document.visibilityState === 'visible') {
-                    setContentHidden(false);
-                    setScreenshotBlocked(false);
-                }
-            }, HIDE_DURATION);
         };
 
-        // ========================
-        // LAYER 1: HIGH-FREQUENCY VISIBILITY POLLING (every 16ms)
-        // Catches screenshot faster than event-based detection
-        // ========================
-        let lastVisibilityState = document.visibilityState;
-        const visibilityPollInterval = setInterval(() => {
-            if (document.visibilityState !== lastVisibilityState) {
-                if (document.visibilityState !== 'visible') {
-                    hideContent('visibility_change');
-                }
-                lastVisibilityState = document.visibilityState;
-            }
-            // Also check if document lost focus
-            if (!document.hasFocus() && !contentHidden) {
-                hideContent('focus_lost');
-            }
-        }, 16); // ~60fps polling
-
-        // ========================
-        // LAYER 2: ACCELEROMETER/DEVICEMOTION - Detect button press movement
-        // When user presses hardware buttons, device moves slightly
-        // ========================
-        let lastAcceleration = { x: 0, y: 0, z: 0 };
-        let motionEventCount = 0;
-
-        const handleDeviceMotion = (e: DeviceMotionEvent) => {
-            if (!e.acceleration) return;
-
-            const { x, y, z } = e.acceleration;
-            if (x === null || y === null || z === null) return;
-
-            // Calculate jerk (sudden movement)
-            const jerk = Math.abs(x - lastAcceleration.x) +
-                Math.abs(y - lastAcceleration.y) +
-                Math.abs(z - lastAcceleration.z);
-
-            // High jerk = button press motion (threshold ~2-5)
-            if (jerk > 3 && motionEventCount > 10) {
-                hideContent('device_motion_jerk');
-            }
-
-            lastAcceleration = { x, y, z };
-            motionEventCount++;
+        const handleTouchCancel = () => {
+            isTouching = false;
+            hideContentInstantly();
         };
 
-        // ========================
-        // LAYER 3: TOUCH RELEASE DETECTION
-        // When user removes ALL fingers to press buttons
-        // ========================
-        let touchCount = 0;
-        let touchReleaseTime = 0;
-
-        const handleTouchStart = (e: TouchEvent) => {
-            touchCount = e.touches.length;
-
-            // Multi-touch = possible screenshot
-            if (touchCount >= 2) {
-                hideContent('multi_touch');
+        // ====================
+        // MOUSE HANDLERS - For desktop
+        // ====================
+        const handleMouseDown = () => {
+            if (!isMobile) {
+                showContent();
             }
         };
 
-        const handleTouchEnd = (e: TouchEvent) => {
-            const previousCount = touchCount;
-            touchCount = e.touches.length;
-
-            // ALL touches removed suddenly = preparing for button press
-            if (previousCount > 0 && touchCount === 0) {
-                touchReleaseTime = Date.now();
-                // Give a brief window then hide
-                setTimeout(() => {
-                    // If still no touches after 100ms, might be button press
-                    if (touchCount === 0 && Date.now() - touchReleaseTime >= 100) {
-                        hideContent('all_touches_released');
+        const handleMouseUp = () => {
+            if (!isMobile) {
+                // On desktop, show for a bit longer
+                touchHideTimeout = setTimeout(() => {
+                    if (!document.hasFocus()) {
+                        hideContentInstantly();
                     }
-                }, 150);
-            }
-
-            // Double-tap prevention
-            const now = Date.now();
-            if (now - touchReleaseTime <= 300 && previousCount > 0) {
-                e.preventDefault();
+                }, 200);
             }
         };
 
-        // ========================
-        // LAYER 4: Window blur/focus detection
-        // ========================
-        const handleWindowBlur = () => hideContent('window_blur');
-
-        const handleWindowFocus = () => {
-            if (hideTimeout) clearTimeout(hideTimeout);
-            hideTimeout = setTimeout(() => {
-                setContentHidden(false);
-                setScreenshotBlocked(false);
-            }, 500);
-        };
-
-        // ========================
-        // LAYER 5: Visibility change event (backup)
-        // ========================
+        // ====================
+        // VISIBILITY & FOCUS - Additional protection
+        // ====================
         const handleVisibilityChange = () => {
             if (document.hidden || document.visibilityState !== 'visible') {
-                hideContent('visibility_hidden');
-            } else {
-                if (hideTimeout) clearTimeout(hideTimeout);
-                hideTimeout = setTimeout(() => {
+                hideContentInstantly();
+            } else if (!isMobile) {
+                // On desktop, restore on focus
+                setTimeout(() => {
                     setContentHidden(false);
                     setScreenshotBlocked(false);
-                }, 500);
+                }, 300);
             }
         };
 
-        // ========================
-        // LAYER 6: Screen Recording Detection via Frame Rate Drop
-        // ========================
-        let animationFrameId: number;
-        const detectScreenRecording = () => {
-            const now = performance.now();
-            const delta = now - lastFrameTime.current;
+        const handleWindowBlur = () => hideContentInstantly();
 
-            if (lastFrameTime.current > 0 && delta > 50) {
-                frameDropCount.current++;
-                if (frameDropCount.current > 3) {
-                    hideContent('frame_drop_recording');
-                }
-            } else {
-                frameDropCount.current = Math.max(0, frameDropCount.current - 1);
+        const handleWindowFocus = () => {
+            if (!isMobile && !isTouching) {
+                setTimeout(() => {
+                    setContentHidden(false);
+                    setScreenshotBlocked(false);
+                }, 300);
             }
-
-            lastFrameTime.current = now;
-            animationFrameId = requestAnimationFrame(detectScreenRecording);
         };
-        animationFrameId = requestAnimationFrame(detectScreenRecording);
 
-        // ========================
-        // LAYER 7: Page lifecycle events (iOS specific)
-        // ========================
-        const handlePageHide = () => hideContent('page_hide');
-        const handleFreeze = () => hideContent('page_freeze');
-
-        // ========================
-        // LAYER 8: Prevent all save/copy mechanisms
-        // ========================
+        // ====================
+        // PREVENT SAVE/COPY
+        // ====================
         const preventContextMenu = (e: Event) => {
             e.preventDefault();
             e.stopPropagation();
+            hideContentInstantly();
             return false;
         };
 
@@ -247,53 +199,55 @@ export default function ViewFilePage() {
                 (e.ctrlKey && e.key === 's')
             ) {
                 e.preventDefault();
-                hideContent('keyboard_shortcut');
+                hideContentInstantly();
             }
         };
 
         const preventZoom = (e: TouchEvent) => {
             if (e.touches.length > 1) {
                 e.preventDefault();
+                hideContentInstantly();
             }
         };
 
-        // ========================
-        // Add all event listeners
-        // ========================
+        // ====================
+        // ADD LISTENERS
+        // ====================
+        document.addEventListener('touchstart', handleTouchStart, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd, { passive: false });
+        document.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+        document.addEventListener('touchmove', preventZoom, { passive: false });
+        document.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mouseup', handleMouseUp);
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('blur', handleWindowBlur);
         window.addEventListener('focus', handleWindowFocus);
-        window.addEventListener('pagehide', handlePageHide);
-        window.addEventListener('freeze', handleFreeze as EventListener);
-        window.addEventListener('devicemotion', handleDeviceMotion as EventListener);
+        window.addEventListener('pagehide', hideContentInstantly);
         document.addEventListener('contextmenu', preventContextMenu, true);
         document.addEventListener('dragstart', preventDrag);
         document.addEventListener('copy', preventCopy);
         document.addEventListener('keydown', preventKeyboard);
-        document.addEventListener('touchstart', handleTouchStart, { passive: false });
-        document.addEventListener('touchstart', preventZoom, { passive: false });
-        document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
         // Cleanup
         return () => {
-            clearInterval(visibilityPollInterval);
-            cancelAnimationFrame(animationFrameId);
-            if (hideTimeout) clearTimeout(hideTimeout);
+            if (touchShowTimeout) clearTimeout(touchShowTimeout);
+            if (touchHideTimeout) clearTimeout(touchHideTimeout);
+            document.removeEventListener('touchstart', handleTouchStart);
+            document.removeEventListener('touchend', handleTouchEnd);
+            document.removeEventListener('touchcancel', handleTouchCancel);
+            document.removeEventListener('touchmove', preventZoom);
+            document.removeEventListener('mousedown', handleMouseDown);
+            document.removeEventListener('mouseup', handleMouseUp);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('blur', handleWindowBlur);
             window.removeEventListener('focus', handleWindowFocus);
-            window.removeEventListener('pagehide', handlePageHide);
-            window.removeEventListener('freeze', handleFreeze as EventListener);
-            window.removeEventListener('devicemotion', handleDeviceMotion as EventListener);
+            window.removeEventListener('pagehide', hideContentInstantly);
             document.removeEventListener('contextmenu', preventContextMenu, true);
             document.removeEventListener('dragstart', preventDrag);
             document.removeEventListener('copy', preventCopy);
             document.removeEventListener('keydown', preventKeyboard);
-            document.removeEventListener('touchstart', handleTouchStart);
-            document.removeEventListener('touchstart', preventZoom);
-            document.removeEventListener('touchend', handleTouchEnd);
         };
-    }, [step, fileId, viewer?.email, contentHidden]);
+    }, [step, fileId, viewer?.email]);
 
     // Fetch file info
     useEffect(() => {
@@ -584,13 +538,21 @@ export default function ViewFilePage() {
                 touchAction: 'none'
             }}
         >
-            {/* Screenshot blocked overlay */}
-            {screenshotBlocked && (
+            {/* Hold to View / Screenshot blocked overlay */}
+            {contentHidden && (
                 <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
-                    <div className="text-center">
-                        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                        <h2 className="text-xl font-bold text-red-500">Screenshot Detected</h2>
-                        <p className="text-gray-400 text-sm mt-2">This action has been logged.</p>
+                    <div className="text-center px-8">
+                        <div className="w-20 h-20 border-4 border-dashed border-cyan-500/50 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                            <div className="text-3xl">👆</div>
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-2">Hold to View</h2>
+                        <p className="text-gray-400 text-sm max-w-xs mx-auto">
+                            Touch and hold the screen to view content.
+                            Content is hidden when not touching for security.
+                        </p>
+                        <div className="mt-6 text-xs text-gray-600">
+                            🔒 Screenshot-proof viewing
+                        </div>
                     </div>
                 </div>
             )}
