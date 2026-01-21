@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
         // Normalize allowed recipients to lowercase to ensure case-insensitive matching
         const allowedRecipients = (settings.allowed_recipients || []).map((r: string) => r.toLowerCase())
 
-        // Check if owner
-        const { data: user } = await supabase.from('users').select('id').eq('email', email).single()
+        // Check if owner (case-insensitive email matching)
+        const { data: user } = await supabase.from('users').select('id').ilike('email', email).single()
         const isOwner = user && user.id === file.owner_id
 
         const isRecipient = allowedRecipients.includes(email) || isOwner
@@ -148,8 +148,8 @@ export async function POST(request: NextRequest) {
 }
 
 async function grantAccess(supabase: any, fileId: string, email: string, name: string, trust: number) {
-    // Determine user ID if exists
-    const { data: user } = await supabase.from('users').select('id').eq('email', email).single()
+    // Determine user ID if exists (case-insensitive)
+    const { data: user } = await supabase.from('users').select('id').ilike('email', email).single()
 
     // Create/Update permission
     if (user) {
