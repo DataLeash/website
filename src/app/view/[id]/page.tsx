@@ -37,7 +37,7 @@ export default function ViewFilePage() {
     const [step, setStep] = useState<'auth' | 'request' | 'password' | 'viewing' | 'denied'>('auth');
 
     // Auth & Access
-    const [viewer, setViewer] = useState<{ email: string; name: string } | null>(null);
+    const [viewer, setViewer] = useState<{ email: string; name: string; id?: string } | null>(null);
     const [password, setPassword] = useState('');
     const [fileContent, setFileContent] = useState<string | null>(null);
     const [accessRequestStatus, setAccessRequestStatus] = useState<string>('');
@@ -57,7 +57,8 @@ export default function ViewFilePage() {
                 if (user) {
                     setViewer({
                         email: user.email!,
-                        name: user.user_metadata?.full_name || user.email?.split('@')[0]
+                        name: user.user_metadata?.full_name || user.email?.split('@')[0],
+                        id: user.id
                     });
 
                     // If user is logged in, check if they can access directly
@@ -185,7 +186,10 @@ export default function ViewFilePage() {
         const emailToUse = emailOverride || viewer?.email || '';
         try {
             const res = await fetch(`/api/files/${fileId}/decrypt`, {
-                headers: { 'x-viewer-email': emailToUse }
+                headers: {
+                    'x-viewer-email': emailToUse,
+                    'x-viewer-id': viewer?.id || ''
+                }
             });
             if (!res.ok) throw new Error('Failed to load file');
             const blob = await res.blob();

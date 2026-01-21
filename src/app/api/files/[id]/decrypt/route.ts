@@ -82,25 +82,37 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
 
         // 3. Check Access Permission (if no password and not public)
         else if (!isPasswordCheck) {
-            console.log('[DECRYPT] Checking permissions for email:', viewerEmail)
+            // Get viewer ID header for direct owner check
+            const viewerId = request.headers.get('x-viewer-id')
+            console.log('[DECRYPT] Checking permissions for email:', viewerEmail, 'viewerId:', viewerId)
 
             // Require viewerEmail for non-password-protected files
-            if (!viewerEmail) {
-                console.error('[DECRYPT] No viewer email provided')
+            if (!viewerEmail && !viewerId) {
+                console.error('[DECRYPT] No viewer email or ID provided')
                 return NextResponse.json({ error: 'Viewer email required' }, { status: 400 })
             }
 
-            // Check Owner
-            const { data: user } = await supabase.from('users').select('id').ilike('email', viewerEmail).single()
-            const isOwner = user && user.id === file.owner_id
+            // Check Owner - First by direct ID match (most reliable), then by email lookup
+            let isOwner = false
+            let userRecord: { id: string } | null = null
+
+            if (viewerId && viewerId === file.owner_id) {
+                isOwner = true
+                console.log('[DECRYPT] Viewer is OWNER by ID match - access granted')
+            } else if (viewerEmail) {
+                const { data: user } = await supabase.from('users').select('id').ilike('email', viewerEmail).single()
+                userRecord = user
+                isOwner = !!(user && user.id === file.owner_id)
+                if (isOwner) console.log('[DECRYPT] Viewer is OWNER by email lookup - access granted')
+            }
 
             // Check allowed recipients (case-insensitive)
             const allowedRecipients = (settings.allowed_recipients || []).map((r: string) => r.toLowerCase())
-            const viewerEmailLower = viewerEmail.toLowerCase()
+            const viewerEmailLower = (viewerEmail || '').toLowerCase()
 
             if (isOwner) {
                 console.log('[DECRYPT] Viewer is OWNER - access granted')
-            } else if (allowedRecipients.includes(viewerEmailLower)) {
+            } else if (viewerEmailLower && allowedRecipients.includes(viewerEmailLower)) {
                 console.log('[DECRYPT] Viewer is in allowed_recipients')
             } else {
                 // Check 'access_requests' for approved request (case-insensitive)
@@ -108,7 +120,7 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
                     .from('access_requests')
                     .select('id')
                     .eq('file_id', fileId)
-                    .ilike('viewer_email', viewerEmailLower)
+                    .ilike('viewer_email', viewerEmailLower || '')
                     .eq('status', 'approved')
                     .limit(1)
 
@@ -117,12 +129,12 @@ async function commonDecrypt(request: NextRequest, { id: fileId }: { id: string 
                 } else {
                     // Check 'permissions' table
                     let hasPermission = false
-                    if (user) {
+                    if (userRecord) {
                         const { data: perm } = await supabase
                             .from('permissions')
                             .select('id')
                             .eq('file_id', fileId)
-                            .eq('user_id', user.id)
+                            .eq('user_id', userRecord.id)
                             .maybeSingle()
                         if (perm) hasPermission = true
                     }
