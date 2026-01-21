@@ -41,6 +41,90 @@ export default function ViewFilePage() {
     const [password, setPassword] = useState('');
     const [fileContent, setFileContent] = useState<string | null>(null);
     const [accessRequestStatus, setAccessRequestStatus] = useState<string>('');
+    const [screenshotBlocked, setScreenshotBlocked] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    // Mobile Security: Screenshot detection, save blocking, zoom prevention
+    useEffect(() => {
+        if (step !== 'viewing') return;
+
+        // Prevent context menu (right-click / long-press save)
+        const preventContextMenu = (e: Event) => {
+            e.preventDefault();
+            return false;
+        };
+
+        // Prevent drag/drop of images
+        const preventDrag = (e: DragEvent) => {
+            e.preventDefault();
+            return false;
+        };
+
+        // Screenshot detection via visibility change (user switches apps to screenshot)
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                // User left the page - possible screenshot attempt
+                setScreenshotBlocked(true);
+                // Log the attempt
+                fetch('/api/access/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileId,
+                        action: 'screenshot_attempt',
+                        viewerEmail: viewer?.email
+                    })
+                }).catch(() => { });
+
+                // Show blocked screen briefly, then restore
+                setTimeout(() => setScreenshotBlocked(false), 2000);
+            }
+        };
+
+        // Detect PrintScreen key on desktop
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4'))) {
+                e.preventDefault();
+                setScreenshotBlocked(true);
+                setTimeout(() => setScreenshotBlocked(false), 2000);
+            }
+        };
+
+        // Prevent pinch-to-zoom on touch devices
+        const preventZoom = (e: TouchEvent) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        };
+
+        // Disable double-tap zoom
+        let lastTouchEnd = 0;
+        const preventDoubleTapZoom = (e: TouchEvent) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        };
+
+        // Add all event listeners
+        document.addEventListener('contextmenu', preventContextMenu);
+        document.addEventListener('dragstart', preventDrag);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('touchstart', preventZoom, { passive: false });
+        document.addEventListener('touchend', preventDoubleTapZoom);
+
+        // Cleanup
+        return () => {
+            document.removeEventListener('contextmenu', preventContextMenu);
+            document.removeEventListener('dragstart', preventDrag);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('touchstart', preventZoom);
+            document.removeEventListener('touchend', preventDoubleTapZoom);
+        };
+    }, [step, fileId, viewer?.email]);
 
     // Fetch file info
     useEffect(() => {
@@ -320,42 +404,101 @@ export default function ViewFilePage() {
         </div>
     );
 
-    // 4. Viewing Step
+    // 4. Viewing Step - Secure Viewer with Mobile Protection
     return (
-        <div className="min-h-screen bg-black flex flex-col">
-            <header className="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-[#0a0a0a]">
-                <div className="flex items-center gap-3">
-                    <Link href="/" className="font-bold text-lg text-white">DataLeash</Link>
-                    <span className="text-gray-600">/</span>
-                    <span className="text-gray-300 text-sm truncate max-w-[200px]">{file?.original_name}</span>
+        <div
+            className="min-h-screen bg-black flex flex-col touch-none select-none"
+            style={{
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                WebkitTouchCallout: 'none',
+                touchAction: 'none'
+            }}
+        >
+            {/* Screenshot blocked overlay */}
+            {screenshotBlocked && (
+                <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
+                    <div className="text-center">
+                        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                        <h2 className="text-xl font-bold text-red-500">Screenshot Detected</h2>
+                        <p className="text-gray-400 text-sm mt-2">This action has been logged.</p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span>{viewer?.email}</span>
-                    <div className="flex items-center gap-1 text-green-500">
+            )}
+
+            <header className="h-14 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 bg-[#0a0a0a] shrink-0">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                    <Link href="/" className="font-bold text-base md:text-lg text-white shrink-0">DataLeash</Link>
+                    <span className="text-gray-600 hidden sm:block">/</span>
+                    <span className="text-gray-300 text-xs md:text-sm truncate max-w-[120px] md:max-w-[200px] hidden sm:block">{file?.original_name}</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-4 text-[10px] md:text-xs text-gray-500">
+                    <span className="truncate max-w-[100px] md:max-w-none">{viewer?.email}</span>
+                    <div className="flex items-center gap-1 text-green-500 shrink-0">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                        Secure Session
+                        <span className="hidden sm:inline">Secure Session</span>
                     </div>
                 </div>
             </header>
 
-            <div className="flex-1 relative w-full bg-[#111] overflow-hidden">
-                {fileContent && (
+            <div
+                ref={contentRef}
+                className="flex-1 relative w-full bg-[#111] overflow-hidden flex items-center justify-center"
+                onContextMenu={(e) => e.preventDefault()}
+                onDragStart={(e) => e.preventDefault()}
+            >
+                {fileContent && file?.mime_type?.startsWith('image/') ? (
+                    // Render images directly centered (not in iframe)
+                    <img
+                        src={fileContent}
+                        alt={file?.original_name}
+                        className="max-w-full max-h-full object-contain pointer-events-none"
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
+                        onDragStart={(e) => e.preventDefault()}
+                        style={{
+                            WebkitUserDrag: 'none',
+                            WebkitTouchCallout: 'none'
+                        } as React.CSSProperties}
+                    />
+                ) : fileContent ? (
+                    // Non-image files use iframe
                     <iframe
                         src={fileContent}
-                        className="absolute inset-0 w-full h-full border-none"
+                        className="w-full h-full border-none"
                         allow="autoplay; fullscreen"
                         sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-presentation"
                     />
-                )}
+                ) : null}
 
-                {/* Watermark Overlay */}
-                <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden flex flex-wrap content-center justify-center opacity-[0.03]">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                        <div key={i} className="text-4xl font-bold text-white rotate-[-45deg] m-12 select-none">
-                            {viewer?.email}
-                        </div>
-                    ))}
+                {/* Watermark Overlay - More dense for mobile */}
+                <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden opacity-[0.04]">
+                    <div className="absolute inset-0 flex flex-wrap content-start justify-start" style={{ transform: 'rotate(-30deg) scale(1.5)', transformOrigin: 'center' }}>
+                        {Array.from({ length: 30 }).map((_, i) => (
+                            <div key={i} className="text-lg md:text-2xl font-bold text-white whitespace-nowrap m-4 md:m-8 select-none">
+                                {viewer?.email}
+                            </div>
+                        ))}
+                    </div>
                 </div>
+
+                {/* Invisible overlay to prevent touch interactions with content */}
+                <div
+                    className="absolute inset-0 z-40"
+                    style={{ pointerEvents: 'auto' }}
+                    onContextMenu={(e) => e.preventDefault()}
+                    onTouchStart={(e) => {
+                        // Allow single touch for scrolling but log multi-touch (zoom attempts)
+                        if (e.touches.length > 1) {
+                            e.preventDefault();
+                        }
+                    }}
+                />
+            </div>
+
+            {/* Mobile footer indicator */}
+            <div className="h-8 bg-[#0a0a0a] border-t border-gray-800 flex items-center justify-center text-[10px] text-gray-600 shrink-0">
+                🔒 Protected by DataLeash
             </div>
         </div>
     );
