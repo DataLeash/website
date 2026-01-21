@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { Resend } from 'resend'
@@ -157,17 +158,26 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: fileError.message }, { status: 500 })
         }
 
-        // Store encryption key shards
+        // Store encryption key shards using ADMIN client (RLS only allows service_role)
+        const adminClient = createAdminClient()
         const shards = splitKey(encryptionKey, 4)
         for (let i = 0; i < shards.length; i++) {
-            await supabase.from('key_shards').insert({
+            const { error: shardError } = await adminClient.from('key_shards').insert({
                 file_id: fileRecord.id,
                 shard_index: i + 1,
                 shard_data: shards[i],
                 expires_at: expirationDate?.toISOString() || null,
                 is_destroyed: false,
             })
+            if (shardError) {
+                console.error(`[UPLOAD] Failed to insert shard ${i + 1}:`, shardError)
+                // Clean up: delete the file record and storage
+                await supabase.from('files').delete().eq('id', fileRecord.id)
+                await supabase.storage.from('protected-files').remove([`${user.id}/${encryptedFileName}`])
+                return NextResponse.json({ error: 'Failed to store encryption keys' }, { status: 500 })
+            }
         }
+        console.log(`[UPLOAD] Successfully stored ${shards.length} key shards for file ${fileRecord.id}`)
 
         // Get owner info
         const { data: ownerData } = await supabase
