@@ -51,29 +51,141 @@ export default function ViewFilePage() {
     useEffect(() => {
         if (step !== 'viewing') return;
 
+        const HIDE_DURATION = 5000; // Hide for 5 seconds when triggered
+        let hideTimeout: NodeJS.Timeout | null = null;
+
+        const hideContent = (reason: string) => {
+            setContentHidden(true);
+            setScreenshotBlocked(true);
+
+            // Log the attempt
+            fetch('/api/access/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fileId,
+                    action: reason,
+                    viewerEmail: viewer?.email,
+                    timestamp: new Date().toISOString()
+                })
+            }).catch(() => { });
+
+            // Clear any existing timeout and set new one
+            if (hideTimeout) clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => {
+                if (document.hasFocus() && document.visibilityState === 'visible') {
+                    setContentHidden(false);
+                    setScreenshotBlocked(false);
+                }
+            }, HIDE_DURATION);
+        };
+
         // ========================
-        // LAYER 1: Instant Content Hiding on ANY visibility change
+        // LAYER 1: HIGH-FREQUENCY VISIBILITY POLLING (every 16ms)
+        // Catches screenshot faster than event-based detection
+        // ========================
+        let lastVisibilityState = document.visibilityState;
+        const visibilityPollInterval = setInterval(() => {
+            if (document.visibilityState !== lastVisibilityState) {
+                if (document.visibilityState !== 'visible') {
+                    hideContent('visibility_change');
+                }
+                lastVisibilityState = document.visibilityState;
+            }
+            // Also check if document lost focus
+            if (!document.hasFocus() && !contentHidden) {
+                hideContent('focus_lost');
+            }
+        }, 16); // ~60fps polling
+
+        // ========================
+        // LAYER 2: ACCELEROMETER/DEVICEMOTION - Detect button press movement
+        // When user presses hardware buttons, device moves slightly
+        // ========================
+        let lastAcceleration = { x: 0, y: 0, z: 0 };
+        let motionEventCount = 0;
+
+        const handleDeviceMotion = (e: DeviceMotionEvent) => {
+            if (!e.acceleration) return;
+
+            const { x, y, z } = e.acceleration;
+            if (x === null || y === null || z === null) return;
+
+            // Calculate jerk (sudden movement)
+            const jerk = Math.abs(x - lastAcceleration.x) +
+                Math.abs(y - lastAcceleration.y) +
+                Math.abs(z - lastAcceleration.z);
+
+            // High jerk = button press motion (threshold ~2-5)
+            if (jerk > 3 && motionEventCount > 10) {
+                hideContent('device_motion_jerk');
+            }
+
+            lastAcceleration = { x, y, z };
+            motionEventCount++;
+        };
+
+        // ========================
+        // LAYER 3: TOUCH RELEASE DETECTION
+        // When user removes ALL fingers to press buttons
+        // ========================
+        let touchCount = 0;
+        let touchReleaseTime = 0;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            touchCount = e.touches.length;
+
+            // Multi-touch = possible screenshot
+            if (touchCount >= 2) {
+                hideContent('multi_touch');
+            }
+        };
+
+        const handleTouchEnd = (e: TouchEvent) => {
+            const previousCount = touchCount;
+            touchCount = e.touches.length;
+
+            // ALL touches removed suddenly = preparing for button press
+            if (previousCount > 0 && touchCount === 0) {
+                touchReleaseTime = Date.now();
+                // Give a brief window then hide
+                setTimeout(() => {
+                    // If still no touches after 100ms, might be button press
+                    if (touchCount === 0 && Date.now() - touchReleaseTime >= 100) {
+                        hideContent('all_touches_released');
+                    }
+                }, 150);
+            }
+
+            // Double-tap prevention
+            const now = Date.now();
+            if (now - touchReleaseTime <= 300 && previousCount > 0) {
+                e.preventDefault();
+            }
+        };
+
+        // ========================
+        // LAYER 4: Window blur/focus detection
+        // ========================
+        const handleWindowBlur = () => hideContent('window_blur');
+
+        const handleWindowFocus = () => {
+            if (hideTimeout) clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => {
+                setContentHidden(false);
+                setScreenshotBlocked(false);
+            }, 500);
+        };
+
+        // ========================
+        // LAYER 5: Visibility change event (backup)
         // ========================
         const handleVisibilityChange = () => {
             if (document.hidden || document.visibilityState !== 'visible') {
-                // INSTANTLY hide content - don't wait
-                setContentHidden(true);
-                setScreenshotBlocked(true);
-
-                // Log the attempt
-                fetch('/api/access/log', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fileId,
-                        action: 'screenshot_attempt',
-                        viewerEmail: viewer?.email,
-                        timestamp: new Date().toISOString()
-                    })
-                }).catch(() => { });
+                hideContent('visibility_hidden');
             } else {
-                // Only restore after a delay when coming back
-                setTimeout(() => {
+                if (hideTimeout) clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(() => {
                     setContentHidden(false);
                     setScreenshotBlocked(false);
                 }, 500);
@@ -81,54 +193,17 @@ export default function ViewFilePage() {
         };
 
         // ========================
-        // LAYER 2: Window blur detection (catches iOS screenshot)
-        // ========================
-        const handleWindowBlur = () => {
-            setContentHidden(true);
-            setScreenshotBlocked(true);
-            // Restore after delay
-            setTimeout(() => {
-                if (document.hasFocus()) {
-                    setContentHidden(false);
-                    setScreenshotBlocked(false);
-                }
-            }, 1000);
-        };
-
-        const handleWindowFocus = () => {
-            setTimeout(() => {
-                setContentHidden(false);
-                setScreenshotBlocked(false);
-            }, 300);
-        };
-
-        // ========================
-        // LAYER 3: Screen Recording Detection via Frame Rate Drop
-        // iOS screen recording causes frame drops
+        // LAYER 6: Screen Recording Detection via Frame Rate Drop
         // ========================
         let animationFrameId: number;
         const detectScreenRecording = () => {
             const now = performance.now();
             const delta = now - lastFrameTime.current;
 
-            // Screen recording typically causes >50ms frame gaps
             if (lastFrameTime.current > 0 && delta > 50) {
                 frameDropCount.current++;
-
-                // Multiple frame drops = likely recording
                 if (frameDropCount.current > 3) {
-                    setContentHidden(true);
-                    setScreenshotBlocked(true);
-                    // Log recording attempt
-                    fetch('/api/access/log', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            fileId,
-                            action: 'screen_recording_detected',
-                            viewerEmail: viewer?.email
-                        })
-                    }).catch(() => { });
+                    hideContent('frame_drop_recording');
                 }
             } else {
                 frameDropCount.current = Math.max(0, frameDropCount.current - 1);
@@ -140,20 +215,13 @@ export default function ViewFilePage() {
         animationFrameId = requestAnimationFrame(detectScreenRecording);
 
         // ========================
-        // LAYER 4: Touch-based screenshot detection (iOS power+volume)
-        // Multiple simultaneous touches = button combo
+        // LAYER 7: Page lifecycle events (iOS specific)
         // ========================
-        const handleMultiTouch = (e: TouchEvent) => {
-            // 2+ touches could be screenshot gesture
-            if (e.touches.length >= 2) {
-                e.preventDefault();
-                setContentHidden(true);
-                setTimeout(() => setContentHidden(false), 500);
-            }
-        };
+        const handlePageHide = () => hideContent('page_hide');
+        const handleFreeze = () => hideContent('page_freeze');
 
         // ========================
-        // LAYER 5: Prevent all save/copy mechanisms
+        // LAYER 8: Prevent all save/copy mechanisms
         // ========================
         const preventContextMenu = (e: Event) => {
             e.preventDefault();
@@ -172,7 +240,6 @@ export default function ViewFilePage() {
         };
 
         const preventKeyboard = (e: KeyboardEvent) => {
-            // Block PrintScreen, Cmd+Shift+3/4/5 (Mac), Ctrl+P (print)
             if (
                 e.key === 'PrintScreen' ||
                 (e.metaKey && e.shiftKey) ||
@@ -180,30 +247,14 @@ export default function ViewFilePage() {
                 (e.ctrlKey && e.key === 's')
             ) {
                 e.preventDefault();
-                setScreenshotBlocked(true);
-                setContentHidden(true);
-                setTimeout(() => {
-                    setScreenshotBlocked(false);
-                    setContentHidden(false);
-                }, 2000);
+                hideContent('keyboard_shortcut');
             }
         };
 
-        // Prevent pinch-to-zoom
         const preventZoom = (e: TouchEvent) => {
             if (e.touches.length > 1) {
                 e.preventDefault();
             }
-        };
-
-        // Disable double-tap zoom
-        let lastTouchEnd = 0;
-        const preventDoubleTapZoom = (e: TouchEvent) => {
-            const now = Date.now();
-            if (now - lastTouchEnd <= 300) {
-                e.preventDefault();
-            }
-            lastTouchEnd = now;
         };
 
         // ========================
@@ -212,31 +263,37 @@ export default function ViewFilePage() {
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('blur', handleWindowBlur);
         window.addEventListener('focus', handleWindowFocus);
-        window.addEventListener('pagehide', handleWindowBlur);
+        window.addEventListener('pagehide', handlePageHide);
+        window.addEventListener('freeze', handleFreeze as EventListener);
+        window.addEventListener('devicemotion', handleDeviceMotion as EventListener);
         document.addEventListener('contextmenu', preventContextMenu, true);
         document.addEventListener('dragstart', preventDrag);
         document.addEventListener('copy', preventCopy);
         document.addEventListener('keydown', preventKeyboard);
+        document.addEventListener('touchstart', handleTouchStart, { passive: false });
         document.addEventListener('touchstart', preventZoom, { passive: false });
-        document.addEventListener('touchstart', handleMultiTouch, { passive: false });
-        document.addEventListener('touchend', preventDoubleTapZoom);
+        document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
         // Cleanup
         return () => {
+            clearInterval(visibilityPollInterval);
             cancelAnimationFrame(animationFrameId);
+            if (hideTimeout) clearTimeout(hideTimeout);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('blur', handleWindowBlur);
             window.removeEventListener('focus', handleWindowFocus);
-            window.removeEventListener('pagehide', handleWindowBlur);
+            window.removeEventListener('pagehide', handlePageHide);
+            window.removeEventListener('freeze', handleFreeze as EventListener);
+            window.removeEventListener('devicemotion', handleDeviceMotion as EventListener);
             document.removeEventListener('contextmenu', preventContextMenu, true);
             document.removeEventListener('dragstart', preventDrag);
             document.removeEventListener('copy', preventCopy);
             document.removeEventListener('keydown', preventKeyboard);
+            document.removeEventListener('touchstart', handleTouchStart);
             document.removeEventListener('touchstart', preventZoom);
-            document.removeEventListener('touchstart', handleMultiTouch);
-            document.removeEventListener('touchend', preventDoubleTapZoom);
+            document.removeEventListener('touchend', handleTouchEnd);
         };
-    }, [step, fileId, viewer?.email]);
+    }, [step, fileId, viewer?.email, contentHidden]);
 
     // Fetch file info
     useEffect(() => {
