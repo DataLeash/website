@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.pathname.startsWith(path) &&
         !request.nextUrl.pathname.endsWith('/decrypt') && // Allow decrypt to handle its own auth
         !request.nextUrl.pathname.includes('/info') &&    // Allow file info for public viewing
-        !request.nextUrl.pathname.startsWith('/api/access/') // Allow access request routes
+        !request.nextUrl.pathname.includes('/access')     // Allow access check/request routes
     )
 
     // Auth pages (redirect if already logged in)
