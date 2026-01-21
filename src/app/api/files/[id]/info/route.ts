@@ -1,20 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-
-// Use service role to bypass RLS for public file viewing
-function getSupabaseClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        }
-    )
-}
 
 // Fallback: Generate anonymous ID if not in database
 function generateAnonymousIdFallback(ownerId: string): string {
@@ -58,7 +44,7 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const supabase = getSupabaseClient()
+        const supabase = createAdminClient()
         const { id: fileId } = await params
 
         // Get viewer IP
