@@ -14,30 +14,23 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     // Header
                     headerSection
                     
+                    // Stats Grid
                     if isLoading {
                         loadingView
                     } else if let error = error {
                         errorView(error)
                     } else {
-                        // Stats Grid
                         statsGrid
-                        
-                        // Recent Files
-                        recentFilesSection
-                        
-                        // Quick Actions (New)
                         quickActionsSection
-                        
-                        // Recent Activity
+                        recentFilesSection
                         recentActivitySection
                     }
                 }
                 .padding()
-                .padding(.bottom, 80) // Space for tab bar
             }
             .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
             .navigationTitle("Dashboard")
@@ -59,7 +52,7 @@ struct HomeView: View {
                 Text("Welcome back,")
                     .font(.subheadline)
                     .foregroundColor(.gray)
-                Text(authService.currentUser?.fullName?.components(separatedBy: " ").first ?? authService.currentUser?.email ?? "User")
+                Text(authService.currentUser?.fullName?.components(separatedBy: " ").first ?? authService.currentUser?.email?.components(separatedBy: "@").first ?? "User")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
@@ -139,6 +132,42 @@ struct HomeView: View {
         }
     }
     
+    // MARK: - Quick Actions
+    
+    private var quickActionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            HStack(spacing: 12) {
+                QuickActionButton(
+                    icon: "folder.fill",
+                    title: "Files",
+                    color: .cyan
+                ) {
+                    // Navigate handled by tab
+                }
+                
+                QuickActionButton(
+                    icon: "tray.fill",
+                    title: "Requests",
+                    color: .orange
+                ) {
+                    // Navigate handled by tab
+                }
+                
+                QuickActionButton(
+                    icon: "link",
+                    title: "Share",
+                    color: .purple
+                ) {
+                    // Navigate handled by tab
+                }
+            }
+        }
+    }
+    
     // MARK: - Recent Files
     
     private var recentFilesSection: some View {
@@ -152,7 +181,6 @@ struct HomeView: View {
                     Text("View all →")
                         .font(.caption)
                         .foregroundColor(.cyan)
-                        .contentShape(Rectangle()) // Better touch area
                 }
             }
             
@@ -160,48 +188,13 @@ struct HomeView: View {
                 emptyFilesView
             } else {
                 ForEach(files.prefix(3)) { file in
-                    NavigationLink(destination: FilesView()) { // Navigate to Files tab essentially
-                        FileRowCompact(file: file)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PlainButtonStyle())
+                    FileRowCompact(file: file)
                 }
             }
         }
         .padding()
         .background(Color.white.opacity(0.05))
         .cornerRadius(16)
-    }
-    
-    // MARK: - Quick Actions
-    
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Quick Actions")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            HStack(spacing: 16) {
-                NavigationLink(destination: FilesView()) {
-                   QuickActionCard(icon: "doc.badge.plus", label: "Upload", color: .blue)
-                }
-                
-                NavigationLink(destination: InboxView()) {
-                    QuickActionCard(icon: "tray.full.fill", label: "Requests", color: .purple)
-                }
-                
-                NavigationLink(destination: ProfileView()) {
-                     QuickActionCard(icon: "gear", label: "Settings", color: .gray)
-                }
-                
-                Button(action: {
-                     // Action for Kill All coming soon
-                }) {
-                     QuickActionCard(icon: "xmark.octagon.fill", label: "Kill All", color: .red)
-
-                }
-            }
-        }
     }
     
     private var emptyFilesView: some View {
@@ -312,29 +305,29 @@ struct StatCardView: View {
     }
 }
 
-// MARK: - Quick Action Card
+// MARK: - Quick Action Button
 
-struct QuickActionCard: View {
+struct QuickActionButton: View {
     let icon: String
-    let label: String
+    let title: String
     let color: Color
+    let action: () -> Void
     
     var body: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.2))
-                    .frame(width: 50, height: 50)
+        Button(action: action) {
+            VStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.title2)
                     .foregroundColor(color)
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.white)
             }
-            Text(label)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(color.opacity(0.1))
+            .cornerRadius(12)
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -374,7 +367,6 @@ struct FileRowCompact: View {
             }
         }
         .padding(.vertical, 8)
-        .contentShape(Rectangle()) // Make entire row tappable
     }
 }
 
@@ -389,6 +381,7 @@ struct ActivityRowCompact: View {
         case "red": return .red
         case "green": return .green
         case "orange": return .orange
+        case "blue": return .blue
         default: return .gray
         }
     }
@@ -401,14 +394,19 @@ struct ActivityRowCompact: View {
                 .frame(width: 30)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.action.replacingOccurrences(of: "_", with: " ").capitalized)
+                Text(item.displayAction)
                     .font(.subheadline)
                     .foregroundColor(.white)
-                if let email = item.viewerEmail {
-                    Text(email)
+                if let fileName = item.fileName {
+                    Text(fileName)
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.cyan)
                         .lineLimit(1)
+                }
+                if let city = item.city {
+                    Text(city)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
                 }
             }
             

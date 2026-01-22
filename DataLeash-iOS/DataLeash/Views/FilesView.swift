@@ -8,6 +8,8 @@ struct FilesView: View {
     @State private var isLoading = true
     @State private var error: String?
     @State private var searchText = ""
+    @State private var showShareSheet = false
+    @State private var shareLink = ""
     
     var filteredFiles: [SupabaseClient.FileItem] {
         if searchText.isEmpty { return files }
@@ -34,6 +36,19 @@ struct FilesView: View {
             .cornerRadius(12)
             .padding()
             
+            // Stats Bar
+            if !files.isEmpty {
+                HStack {
+                    Label("\(files.count) files", systemImage: "folder.fill")
+                    Spacer()
+                    Label("\(files.reduce(0) { $0 + $1.totalViews }) total views", systemImage: "eye.fill")
+                }
+                .font(.caption)
+                .foregroundColor(.gray)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+            
             // Content
             if isLoading {
                 Spacer()
@@ -51,15 +66,14 @@ struct FilesView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(filteredFiles) { file in
-                            NavigationLink(destination: FileDetailScreen(file: file, onKill: { await loadFiles() })) {
-                                FileCard(file: file)
-                                    .contentShape(Rectangle()) // Make fully tappable
-                            }
-                            .buttonStyle(PlainButtonStyle()) // Avoid blue highlight issues
+                            FileCardView(
+                                file: file,
+                                onShare: { shareFile(file) },
+                                onKill: { await killFile(file) }
+                            )
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.bottom, 80) // Space for tab bar
                 }
             }
         }
@@ -68,6 +82,9 @@ struct FilesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadFiles() }
         .refreshable { await loadFiles() }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(items: [shareLink])
+        }
     }
     
     private func errorView(_ message: String) -> some View {
@@ -118,226 +135,174 @@ struct FilesView: View {
         
         isLoading = false
     }
-}
-
-// MARK: - File Card
-
-struct FileCard: View {
-    let file: SupabaseClient.FileItem
     
-    var body: some View {
-        HStack(spacing: 16) {
-            // Icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(LinearGradient(colors: [.cyan.opacity(0.3), .blue.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 50, height: 50)
-                Image(systemName: file.iconName)
-                    .font(.title2)
-                    .foregroundColor(.cyan)
-            }
-            
-            // Details
-            VStack(alignment: .leading, spacing: 4) {
-                Text(file.originalName)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                HStack(spacing: 8) {
-                    Label("\(file.totalViews)", systemImage: "eye")
-                    Text("•")
-                    Text(file.createdAt, style: .relative)
-                }
-                .font(.caption)
-                .foregroundColor(.gray)
-            }
-            
-            Spacer()
-            
-            // Status
-            VStack(alignment: .trailing, spacing: 4) {
-                Circle()
-                    .fill(file.isDestroyed ? Color.red : Color.green)
-                    .frame(width: 8, height: 8)
-                Text(file.isDestroyed ? "Killed" : "Active")
-                    .font(.caption2)
-                    .foregroundColor(file.isDestroyed ? .red : .green)
-            }
-            
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
+    private func shareFile(_ file: SupabaseClient.FileItem) {
+        shareLink = file.shareableLink
+        showShareSheet = true
+    }
+    
+    private func killFile(_ file: SupabaseClient.FileItem) async {
+        do {
+            try await SupabaseClient.shared.killFile(fileId: file.id)
+            await loadFiles()
+        } catch {
+            self.error = error.localizedDescription
         }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
     }
 }
 
-// MARK: - File Detail Screen
+// MARK: - File Card View
 
-struct FileDetailScreen: View {
+struct FileCardView: View {
     let file: SupabaseClient.FileItem
+    let onShare: () -> Void
     let onKill: () async -> Void
     
+    @State private var showActions = false
     @State private var showKillAlert = false
     @State private var isKilling = false
-    @State private var killError: String?
-    @State private var showShareSheet = false
-    
-    @Environment(\.dismiss) var dismiss
-    
-    var shareLink: String {
-        "\(Config.apiBaseURL)/view/\(file.id)"
-    }
+    @State private var copied = false
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
+        VStack(spacing: 0) {
+            // Main Card
+            HStack(spacing: 16) {
                 // Icon
                 ZStack {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 12)
                         .fill(LinearGradient(colors: [.cyan.opacity(0.3), .blue.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 100, height: 100)
+                        .frame(width: 50, height: 50)
                     Image(systemName: file.iconName)
-                        .font(.system(size: 44))
+                        .font(.title2)
                         .foregroundColor(.cyan)
                 }
-                .padding(.top, 20)
                 
-                // Name
-                Text(file.originalName)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                
-                // Stats
-                HStack(spacing: 40) {
-                    VStack(spacing: 4) {
-                        Text("\(file.totalViews)")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        Text("Views")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                // Details
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(file.originalName)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Label("\(file.totalViews)", systemImage: "eye")
+                        Text("•")
+                        Text(file.createdAt, style: .relative)
                     }
-                    
-                    VStack(spacing: 4) {
-                        Circle()
-                            .fill(file.isDestroyed ? Color.red : Color.green)
-                            .frame(width: 20, height: 20)
-                        Text(file.isDestroyed ? "Killed" : "Active")
-                            .font(.caption)
-                            .foregroundColor(file.isDestroyed ? .red : .green)
-                    }
-                }
-                .padding()
-                .background(Color.white.opacity(0.05))
-                .cornerRadius(16)
-                
-                // Actions
-                VStack(spacing: 12) {
-                    if !file.isDestroyed {
-                        // Share Button
-                        Button(action: { showShareSheet = true }) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.up")
-                                Text("Share File")
-                            }
-                            .font(.headline)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                        }
-                        
-                        // Copy Link (Backup)
-                        Button(action: copyLink) {
-                            HStack {
-                                Image(systemName: "link")
-                                Text("Copy Link")
-                            }
-                            .font(.headline)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.white.opacity(0.1))
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                        }
-                        
-                        // Kill Button
-                        Button(action: { showKillAlert = true }) {
-                            HStack {
-                                Image(systemName: "xmark.octagon.fill")
-                                Text("KILL FILE")
-                                Spacer()
-                                if isKilling {
-                                    ProgressView().tint(.white)
-                                }
-                            }
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.red.opacity(0.2))
-                            .foregroundColor(.red)
-                            .fontWeight(.bold)
-                            .cornerRadius(12)
-                        }
-                        .disabled(isKilling)
-                    } else {
-                        Text("This file has been killed and is no longer accessible.")
-                            .foregroundColor(.red)
-                            .padding()
-                    }
-                }
-                .padding()
-                
-                if let error = killError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .padding()
+                    .font(.caption)
+                    .foregroundColor(.gray)
                 }
                 
                 Spacer()
+                
+                // Status
+                Circle()
+                    .fill(file.isDestroyed ? Color.red : Color.green)
+                    .frame(width: 10, height: 10)
+                
+                // Expand Button
+                Button(action: { withAnimation { showActions.toggle() } }) {
+                    Image(systemName: showActions ? "chevron.up" : "chevron.down")
+                        .foregroundColor(.gray)
+                        .padding(8)
+                }
+            }
+            .padding()
+            
+            // Actions Panel
+            if showActions {
+                Divider().background(Color.gray.opacity(0.3))
+                
+                HStack(spacing: 12) {
+                    // Share Button
+                    Button(action: onShare) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.title3)
+                            Text("Share")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.blue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(10)
+                    }
+                    
+                    // Copy Link Button
+                    Button(action: copyLink) {
+                        VStack(spacing: 4) {
+                            Image(systemName: copied ? "checkmark" : "link")
+                                .font(.title3)
+                            Text(copied ? "Copied!" : "Copy Link")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.purple)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.purple.opacity(0.1))
+                        .cornerRadius(10)
+                    }
+                    
+                    // Kill Button
+                    Button(action: { showKillAlert = true }) {
+                        VStack(spacing: 4) {
+                            if isKilling {
+                                ProgressView().tint(.red)
+                            } else {
+                                Image(systemName: "xmark.octagon.fill")
+                                    .font(.title3)
+                            }
+                            Text("Kill")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(10)
+                    }
+                    .disabled(isKilling || file.isDestroyed)
+                }
+                .padding()
             }
         }
-        .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
-        .navigationTitle("File Details")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showShareSheet) {
-            ShareSheet(activityItems: [URL(string: shareLink)!])
-        }
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
         .alert("Kill File?", isPresented: $showKillAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Kill", role: .destructive) {
-                Task { await killFile() }
+                isKilling = true
+                Task {
+                    await onKill()
+                    isKilling = false
+                }
             }
         } message: {
-            Text("This will permanently revoke all access to this file. This action cannot be undone.")
+            Text("This will permanently revoke all access to '\(file.originalName)'. This cannot be undone.")
         }
     }
     
     private func copyLink() {
-        UIPasteboard.general.string = shareLink
+        UIPasteboard.general.string = file.shareableLink
+        copied = true
+        
+        // Reset after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            copied = false
+        }
+    }
+}
+
+// MARK: - Share Sheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
     
-    private func killFile() async {
-        isKilling = true
-        killError = nil
-        
-        do {
-            try await SupabaseClient.shared.killFile(fileId: file.id)
-            await onKill()
-            dismiss()
-        } catch {
-            killError = error.localizedDescription
-        }
-        
-        isKilling = false
-    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

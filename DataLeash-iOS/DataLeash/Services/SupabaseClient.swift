@@ -2,7 +2,6 @@ import Foundation
 
 // MARK: - Supabase Client
 // Direct Supabase REST API calls with JWT token authentication
-// This bypasses Next.js APIs and works reliably with iOS auth
 
 class SupabaseClient {
     static let shared = SupabaseClient()
@@ -36,7 +35,9 @@ class SupabaseClient {
         
         var urlString = "\(Config.supabaseURL)/rest/v1/\(path)"
         if !query.isEmpty {
-            urlString += "?\(query)"
+            // URL encode the query properly
+            let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+            urlString += "?\(encodedQuery)"
         }
         
         guard let url = URL(string: urlString) else { return nil }
@@ -63,7 +64,7 @@ class SupabaseClient {
         var stats = DashboardStats()
         
         // Get files count and view counts
-        guard var filesReq = makeRequest(path: "files", query: "owner_id=eq.\(userId)&is_destroyed=eq.false&select=id,settings") else {
+        guard let filesReq = makeRequest(path: "files", query: "owner_id=eq.\(userId)&is_destroyed=eq.false&select=id,settings") else {
             throw SupabaseError.notAuthenticated
         }
         
@@ -83,23 +84,19 @@ class SupabaseClient {
         // Get active permissions count
         let fileIds = try await getFileIds()
         if !fileIds.isEmpty {
-            guard var permReq = makeRequest(path: "permissions", query: "file_id=in.(\(fileIds.joined(separator: ",")))&select=id") else {
+            let idsJoined = fileIds.joined(separator: ",")
+            
+            guard let permReq = makeRequest(path: "permissions", query: "file_id=in.(\(idsJoined))&select=id") else {
                 throw SupabaseError.notAuthenticated
             }
-            permReq.setValue("head", forHTTPHeaderField: "Prefer")
-            permReq.setValue("exact", forHTTPHeaderField: "Prefer")
             
-            let (permData, permResponse) = try await URLSession.shared.data(for: permReq)
-            if let httpResp = permResponse as? HTTPURLResponse,
-               let countStr = httpResp.value(forHTTPHeaderField: "content-range"),
-               let count = countStr.components(separatedBy: "/").last.flatMap({ Int($0) }) {
-                stats.activeShares = count
-            } else if let perms = try? JSONSerialization.jsonObject(with: permData) as? [[String: Any]] {
+            let (permData, _) = try await URLSession.shared.data(for: permReq)
+            if let perms = try? JSONSerialization.jsonObject(with: permData) as? [[String: Any]] {
                 stats.activeShares = perms.count
             }
             
             // Get blocked count
-            guard var blockedReq = makeRequest(path: "access_logs", query: "file_id=in.(\(fileIds.joined(separator: ","))&action=eq.blocked&select=id") else {
+            guard let blockedReq = makeRequest(path: "access_logs", query: "file_id=in.(\(idsJoined))&action=eq.blocked&select=id") else {
                 throw SupabaseError.notAuthenticated
             }
             
@@ -135,6 +132,7 @@ class SupabaseClient {
         let createdAt: Date
         let isDestroyed: Bool
         let totalViews: Int
+        let shareableLink: String
         
         var iconName: String {
             guard let type = mimeType else { return "doc.fill" }
@@ -159,6 +157,7 @@ class SupabaseClient {
         }
         
         let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
         return files.compactMap { file -> FileItem? in
             guard let id = file["id"] as? String,
@@ -167,15 +166,22 @@ class SupabaseClient {
             let settings = file["settings"] as? [String: Any]
             let views = settings?["total_views"] as? Int ?? 0
             let createdStr = file["created_at"] as? String ?? ""
-            let date = dateFormatter.date(from: createdStr) ?? Date()
+            
+            // Try with fractional seconds first, then without
+            var date = dateFormatter.date(from: createdStr)
+            if date == nil {
+                let simpleFormatter = ISO8601DateFormatter()
+                date = simpleFormatter.date(from: createdStr)
+            }
             
             return FileItem(
                 id: id,
                 originalName: name,
                 mimeType: file["mime_type"] as? String,
-                createdAt: date,
+                createdAt: date ?? Date(),
                 isDestroyed: file["is_destroyed"] as? Bool ?? false,
-                totalViews: views
+                totalViews: views,
+                shareableLink: "\(Config.apiBaseURL)/view/\(id)"
             )
         }
     }
@@ -204,17 +210,91 @@ class SupabaseClient {
         let fileName: String?
         let viewerEmail: String
         let viewerName: String?
+        let status: String
         let createdAt: Date
+        let ipAddress: String?
+        let deviceInfo: String?
     }
     
     func getPendingRequests() async throws -> [AccessRequestItem] {
-        guard let userId = userId else { throw SupabaseError.notAuthenticated }
-        
         // First get my file IDs
         let fileIds = try await getFileIds()
         if fileIds.isEmpty { return [] }
         
-        guard let req = makeRequest(path: "access_requests", query: "file_id=in.(\(fileIds.joined(separator: ",")))&status=eq.pending&order=created_at.desc&select=id,file_id,viewer_email,viewer_name,created_at,files(original_name)") else {
+        let idsJoined = fileIds.joined(separator: ",")
+        
+        // Fetch access requests - note: we fetch status=pending only
+        guard let req = makeRequest(path: "access_requests", query: "file_id=in.(\(idsJoined))&status=eq.pending&order=created_at.desc&select=*") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: req)
+        
+        // Debug: print response
+        if let httpResp = response as? HTTPURLResponse {
+            print("Access requests status: \(httpResp.statusCode)")
+        }
+        
+        guard let requests = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            print("Failed to parse access requests")
+            return []
+        }
+        
+        print("Found \(requests.count) pending requests")
+        
+        // Get file names separately
+        var fileNames: [String: String] = [:]
+        if !fileIds.isEmpty {
+            if let filesReq = makeRequest(path: "files", query: "id=in.(\(idsJoined))&select=id,original_name") {
+                let (filesData, _) = try await URLSession.shared.data(for: filesReq)
+                if let files = try? JSONSerialization.jsonObject(with: filesData) as? [[String: Any]] {
+                    for file in files {
+                        if let id = file["id"] as? String, let name = file["original_name"] as? String {
+                            fileNames[id] = name
+                        }
+                    }
+                }
+            }
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        return requests.compactMap { req -> AccessRequestItem? in
+            guard let id = req["id"] as? String,
+                  let fileId = req["file_id"] as? String,
+                  let email = req["viewer_email"] as? String else { return nil }
+            
+            let createdStr = req["created_at"] as? String ?? ""
+            var date = dateFormatter.date(from: createdStr)
+            if date == nil {
+                let simpleFormatter = ISO8601DateFormatter()
+                date = simpleFormatter.date(from: createdStr)
+            }
+            
+            return AccessRequestItem(
+                id: id,
+                fileId: fileId,
+                fileName: fileNames[fileId],
+                viewerEmail: email,
+                viewerName: req["viewer_name"] as? String,
+                status: req["status"] as? String ?? "pending",
+                createdAt: date ?? Date(),
+                ipAddress: req["ip_address"] as? String,
+                deviceInfo: req["device_info"] as? String
+            )
+        }
+    }
+    
+    func getAllRequests() async throws -> [AccessRequestItem] {
+        // First get my file IDs
+        let fileIds = try await getFileIds()
+        if fileIds.isEmpty { return [] }
+        
+        let idsJoined = fileIds.joined(separator: ",")
+        
+        // Fetch ALL access requests (not just pending)
+        guard let req = makeRequest(path: "access_requests", query: "file_id=in.(\(idsJoined))&order=created_at.desc&select=*") else {
             throw SupabaseError.notAuthenticated
         }
         
@@ -224,23 +304,44 @@ class SupabaseClient {
             return []
         }
         
+        // Get file names
+        var fileNames: [String: String] = [:]
+        if let filesReq = makeRequest(path: "files", query: "id=in.(\(idsJoined))&select=id,original_name") {
+            let (filesData, _) = try await URLSession.shared.data(for: filesReq)
+            if let files = try? JSONSerialization.jsonObject(with: filesData) as? [[String: Any]] {
+                for file in files {
+                    if let id = file["id"] as? String, let name = file["original_name"] as? String {
+                        fileNames[id] = name
+                    }
+                }
+            }
+        }
+        
         let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
         return requests.compactMap { req -> AccessRequestItem? in
             guard let id = req["id"] as? String,
                   let fileId = req["file_id"] as? String,
                   let email = req["viewer_email"] as? String else { return nil }
             
-            let files = req["files"] as? [String: Any]
             let createdStr = req["created_at"] as? String ?? ""
+            var date = dateFormatter.date(from: createdStr)
+            if date == nil {
+                let simpleFormatter = ISO8601DateFormatter()
+                date = simpleFormatter.date(from: createdStr)
+            }
             
             return AccessRequestItem(
                 id: id,
                 fileId: fileId,
-                fileName: files?["original_name"] as? String,
+                fileName: fileNames[fileId],
                 viewerEmail: email,
                 viewerName: req["viewer_name"] as? String,
-                createdAt: dateFormatter.date(from: createdStr) ?? Date()
+                status: req["status"] as? String ?? "pending",
+                createdAt: date ?? Date(),
+                ipAddress: req["ip_address"] as? String,
+                deviceInfo: req["device_info"] as? String
             )
         }
     }
@@ -266,6 +367,7 @@ class SupabaseClient {
     struct ActivityItem: Identifiable {
         let id: String
         let action: String
+        let fileName: String?
         let timestamp: Date
         let viewerEmail: String?
         let city: String?
@@ -278,6 +380,7 @@ class SupabaseClient {
             case "access_approved": return "checkmark.circle.fill"
             case "access_denied": return "xmark.circle.fill"
             case "screenshot_attempt": return "camera.metering.unknown"
+            case "download": return "arrow.down.circle.fill"
             default: return "doc.fill"
             }
         }
@@ -288,7 +391,20 @@ class SupabaseClient {
             case "blocked", "screenshot_attempt": return "red"
             case "access_approved": return "green"
             case "access_denied": return "orange"
+            case "download": return "blue"
             default: return "gray"
+            }
+        }
+        
+        var displayAction: String {
+            switch action {
+            case "view": return "Viewed file"
+            case "blocked": return "Access blocked"
+            case "access_approved": return "Access approved"
+            case "access_denied": return "Access denied"
+            case "screenshot_attempt": return "Screenshot attempt"
+            case "download": return "Downloaded file"
+            default: return action.replacingOccurrences(of: "_", with: " ").capitalized
             }
         }
     }
@@ -297,7 +413,9 @@ class SupabaseClient {
         let fileIds = try await getFileIds()
         if fileIds.isEmpty { return [] }
         
-        guard let req = makeRequest(path: "access_logs", query: "file_id=in.(\(fileIds.joined(separator: ",")))&order=timestamp.desc&limit=\(limit)&select=id,action,timestamp,location") else {
+        let idsJoined = fileIds.joined(separator: ",")
+        
+        guard let req = makeRequest(path: "access_logs", query: "file_id=in.(\(idsJoined))&order=timestamp.desc&limit=\(limit)&select=id,action,timestamp,location,file_id") else {
             throw SupabaseError.notAuthenticated
         }
         
@@ -307,7 +425,21 @@ class SupabaseClient {
             return []
         }
         
+        // Get file names
+        var fileNames: [String: String] = [:]
+        if let filesReq = makeRequest(path: "files", query: "id=in.(\(idsJoined))&select=id,original_name") {
+            let (filesData, _) = try await URLSession.shared.data(for: filesReq)
+            if let files = try? JSONSerialization.jsonObject(with: filesData) as? [[String: Any]] {
+                for file in files {
+                    if let id = file["id"] as? String, let name = file["original_name"] as? String {
+                        fileNames[id] = name
+                    }
+                }
+            }
+        }
+        
         let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
         return logs.compactMap { log -> ActivityItem? in
             guard let id = log["id"] as? String,
@@ -315,11 +447,19 @@ class SupabaseClient {
             
             let loc = log["location"] as? [String: Any]
             let timestampStr = log["timestamp"] as? String ?? ""
+            let fileId = log["file_id"] as? String
+            
+            var date = dateFormatter.date(from: timestampStr)
+            if date == nil {
+                let simpleFormatter = ISO8601DateFormatter()
+                date = simpleFormatter.date(from: timestampStr)
+            }
             
             return ActivityItem(
                 id: id,
                 action: action,
-                timestamp: dateFormatter.date(from: timestampStr) ?? Date(),
+                fileName: fileId.flatMap { fileNames[$0] },
+                timestamp: date ?? Date(),
                 viewerEmail: loc?["viewer_email"] as? String,
                 city: loc?["city"] as? String,
                 country: loc?["country"] as? String
