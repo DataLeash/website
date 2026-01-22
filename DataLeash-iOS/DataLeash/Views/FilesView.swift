@@ -53,10 +53,13 @@ struct FilesView: View {
                         ForEach(filteredFiles) { file in
                             NavigationLink(destination: FileDetailScreen(file: file, onKill: { await loadFiles() })) {
                                 FileCard(file: file)
+                                    .contentShape(Rectangle()) // Make fully tappable
                             }
+                            .buttonStyle(PlainButtonStyle()) // Avoid blue highlight issues
                         }
                     }
                     .padding(.horizontal)
+                    .padding(.bottom, 80) // Space for tab bar
                 }
             }
         }
@@ -179,7 +182,13 @@ struct FileDetailScreen: View {
     @State private var showKillAlert = false
     @State private var isKilling = false
     @State private var killError: String?
+    @State private var showShareSheet = false
+    
     @Environment(\.dismiss) var dismiss
+    
+    var shareLink: String {
+        "\(Config.apiBaseURL)/view/\(file.id)"
+    }
     
     var body: some View {
         ScrollView {
@@ -230,22 +239,36 @@ struct FileDetailScreen: View {
                 
                 // Actions
                 VStack(spacing: 12) {
-                    // Copy Link
-                    Button(action: copyLink) {
-                        HStack {
-                            Image(systemName: "link")
-                            Text("Copy Share Link")
-                            Spacer()
-                            Image(systemName: "doc.on.doc")
-                        }
-                        .padding()
-                        .background(Color.purple.opacity(0.2))
-                        .foregroundColor(.purple)
-                        .cornerRadius(12)
-                    }
-                    
-                    // Kill Button
                     if !file.isDestroyed {
+                        // Share Button
+                        Button(action: { showShareSheet = true }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("Share File")
+                            }
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                        
+                        // Copy Link (Backup)
+                        Button(action: copyLink) {
+                            HStack {
+                                Image(systemName: "link")
+                                Text("Copy Link")
+                            }
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white.opacity(0.1))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                        
+                        // Kill Button
                         Button(action: { showKillAlert = true }) {
                             HStack {
                                 Image(systemName: "xmark.octagon.fill")
@@ -256,12 +279,17 @@ struct FileDetailScreen: View {
                                 }
                             }
                             .padding()
+                            .frame(maxWidth: .infinity)
                             .background(Color.red.opacity(0.2))
                             .foregroundColor(.red)
                             .fontWeight(.bold)
                             .cornerRadius(12)
                         }
                         .disabled(isKilling)
+                    } else {
+                        Text("This file has been killed and is no longer accessible.")
+                            .foregroundColor(.red)
+                            .padding()
                     }
                 }
                 .padding()
@@ -279,6 +307,9 @@ struct FileDetailScreen: View {
         .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
         .navigationTitle("File Details")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: [URL(string: shareLink)!])
+        }
         .alert("Kill File?", isPresented: $showKillAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Kill", role: .destructive) {
@@ -290,8 +321,7 @@ struct FileDetailScreen: View {
     }
     
     private func copyLink() {
-        let link = "\(Config.apiBaseURL)/view/\(file.id)"
-        UIPasteboard.general.string = link
+        UIPasteboard.general.string = shareLink
     }
     
     private func killFile() async {

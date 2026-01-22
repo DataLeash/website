@@ -37,12 +37,20 @@ struct InboxView: View {
                         }
                     }
                     .padding()
+                    .padding(.bottom, 80)
                 }
             }
         }
         .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
         .navigationTitle("Access Requests")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { Task { await loadRequests() } }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+        }
         .task { await loadRequests() }
         .refreshable { await loadRequests() }
     }
@@ -72,14 +80,26 @@ struct InboxView: View {
             Image(systemName: "tray")
                 .font(.system(size: 60))
                 .foregroundColor(.gray)
-            Text("No pending requests")
+            Text("No Pending Requests")
                 .font(.title3)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
-            Text("When someone requests access\nto your files, it will appear here")
+            
+            Text("When someone attempts to view one of your protected files, their request will appear here for you to approve or deny.")
                 .font(.subheadline)
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            
+            Button("Check Again") {
+                Task { await loadRequests() }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.1))
+            .foregroundColor(.white)
+            .cornerRadius(10)
+            .padding(.top, 10)
         }
     }
     
@@ -148,14 +168,19 @@ struct AccessRequestCard: View {
             HStack {
                 Image(systemName: "doc.fill")
                     .foregroundColor(.cyan)
-                Text("Wants access to: \(request.fileName ?? "Unknown file")")
+                Text("Wants access to: ")
+                    .foregroundColor(.gray)
                     .font(.subheadline)
+                + Text(request.fileName ?? "Unknown file")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
                     .foregroundColor(.white)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color.white.opacity(0.05))
             .cornerRadius(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             
             // Actions
             HStack(spacing: 12) {

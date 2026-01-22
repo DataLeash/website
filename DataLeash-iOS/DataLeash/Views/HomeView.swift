@@ -18,18 +18,26 @@ struct HomeView: View {
                     // Header
                     headerSection
                     
-                    // Stats Grid
                     if isLoading {
                         loadingView
                     } else if let error = error {
                         errorView(error)
                     } else {
+                        // Stats Grid
                         statsGrid
+                        
+                        // Recent Files
                         recentFilesSection
+                        
+                        // Quick Actions (New)
+                        quickActionsSection
+                        
+                        // Recent Activity
                         recentActivitySection
                     }
                 }
                 .padding()
+                .padding(.bottom, 80) // Space for tab bar
             }
             .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
             .navigationTitle("Dashboard")
@@ -144,6 +152,7 @@ struct HomeView: View {
                     Text("View all →")
                         .font(.caption)
                         .foregroundColor(.cyan)
+                        .contentShape(Rectangle()) // Better touch area
                 }
             }
             
@@ -151,13 +160,48 @@ struct HomeView: View {
                 emptyFilesView
             } else {
                 ForEach(files.prefix(3)) { file in
-                    FileRowCompact(file: file)
+                    NavigationLink(destination: FilesView()) { // Navigate to Files tab essentially
+                        FileRowCompact(file: file)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
         }
         .padding()
         .background(Color.white.opacity(0.05))
         .cornerRadius(16)
+    }
+    
+    // MARK: - Quick Actions
+    
+    private var quickActionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            HStack(spacing: 16) {
+                NavigationLink(destination: FilesView()) {
+                   QuickActionCard(icon: "doc.badge.plus", label: "Upload", color: .blue)
+                }
+                
+                NavigationLink(destination: InboxView()) {
+                    QuickActionCard(icon: "tray.full.fill", label: "Requests", color: .purple)
+                }
+                
+                NavigationLink(destination: ProfileView()) {
+                     QuickActionCard(icon: "gear", label: "Settings", color: .gray)
+                }
+                
+                Button(action: {
+                     // Action for Kill All coming soon
+                }) {
+                     QuickActionCard(icon: "xmark.octagon.fill", label: "Kill All", color: .red)
+
+                }
+            }
+        }
     }
     
     private var emptyFilesView: some View {
@@ -268,6 +312,32 @@ struct StatCardView: View {
     }
 }
 
+// MARK: - Quick Action Card
+
+struct QuickActionCard: View {
+    let icon: String
+    let label: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 50, height: 50)
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+            }
+            Text(label)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 // MARK: - File Row Compact
 
 struct FileRowCompact: View {
@@ -304,6 +374,7 @@ struct FileRowCompact: View {
             }
         }
         .padding(.vertical, 8)
+        .contentShape(Rectangle()) // Make entire row tappable
     }
 }
 
