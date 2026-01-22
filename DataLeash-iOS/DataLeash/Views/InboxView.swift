@@ -1,9 +1,10 @@
 import SwiftUI
 
-// MARK: - Inbox View (Real API Data)
+// MARK: - Inbox View
+// Shows pending access requests with real data from Supabase
 
 struct InboxView: View {
-    @State private var requests: [APIClient.AccessRequestResponse] = []
+    @State private var requests: [SupabaseClient.AccessRequestItem] = []
     @State private var isLoading = true
     @State private var error: String?
     
@@ -11,61 +12,74 @@ struct InboxView: View {
         VStack(spacing: 0) {
             if isLoading {
                 Spacer()
-                ProgressView().tint(.cyan)
+                ProgressView().tint(.cyan).scaleEffect(1.5)
+                Text("Loading requests...")
+                    .foregroundColor(.gray)
+                    .padding(.top)
                 Spacer()
             } else if let error = error {
                 Spacer()
-                VStack(spacing: 15) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50))
-                        .foregroundColor(.orange)
-                    Text(error)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    Button("Retry") {
-                        Task { await loadRequests() }
-                    }
-                    .foregroundColor(.cyan)
-                }
+                errorView(error)
                 Spacer()
             } else if requests.isEmpty {
                 Spacer()
-                VStack(spacing: 15) {
-                    Image(systemName: "tray")
-                        .font(.system(size: 50))
-                        .foregroundColor(.gray)
-                    Text("No pending requests")
-                        .font(.title3)
-                        .foregroundColor(.white)
-                    Text("When someone requests access to your files,\nit will appear here")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                }
+                emptyView
                 Spacer()
             } else {
-                List {
-                    ForEach(requests, id: \.id) { request in
-                        RequestRowView(request: request, onApprove: {
-                            await handleResponse(request, action: "approve")
-                        }, onDeny: {
-                            await handleResponse(request, action: "deny")
-                        })
-                        .listRowBackground(Color.white.opacity(0.05))
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(requests) { request in
+                            AccessRequestCard(
+                                request: request,
+                                onApprove: { await respond(request, approve: true) },
+                                onDeny: { await respond(request, approve: false) }
+                            )
+                        }
                     }
+                    .padding()
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
         }
         .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
         .navigationTitle("Access Requests")
-        .task {
-            await loadRequests()
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await loadRequests() }
+        .refreshable { await loadRequests() }
+    }
+    
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+            Text(message)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+            Button("Retry") {
+                Task { await loadRequests() }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.cyan)
+            .foregroundColor(.black)
+            .fontWeight(.bold)
+            .cornerRadius(10)
         }
-        .refreshable {
-            await loadRequests()
+    }
+    
+    private var emptyView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "tray")
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+            Text("No pending requests")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            Text("When someone requests access\nto your files, it will appear here")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
         }
     }
     
@@ -74,7 +88,7 @@ struct InboxView: View {
         error = nil
         
         do {
-            requests = try await APIClient.shared.getPendingRequests()
+            requests = try await SupabaseClient.shared.getPendingRequests()
         } catch {
             self.error = error.localizedDescription
         }
@@ -82,9 +96,9 @@ struct InboxView: View {
         isLoading = false
     }
     
-    private func handleResponse(_ request: APIClient.AccessRequestResponse, action: String) async {
+    private func respond(_ request: SupabaseClient.AccessRequestItem, approve: Bool) async {
         do {
-            try await APIClient.shared.respondToRequest(requestId: request.id, action: action)
+            try await SupabaseClient.shared.respondToRequest(requestId: request.id, approve: approve)
             await loadRequests()
         } catch {
             self.error = error.localizedDescription
@@ -92,41 +106,58 @@ struct InboxView: View {
     }
 }
 
-// MARK: - Request Row
+// MARK: - Access Request Card
 
-struct RequestRowView: View {
-    let request: APIClient.AccessRequestResponse
+struct AccessRequestCard: View {
+    let request: SupabaseClient.AccessRequestItem
     let onApprove: () async -> Void
     let onDeny: () async -> Void
+    
     @State private var isProcessing = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "doc.fill")
-                    .foregroundColor(.cyan)
-                VStack(alignment: .leading) {
-                    Text(request.file?.originalName ?? "Unknown file")
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(colors: [.cyan.opacity(0.3), .blue.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 44, height: 44)
+                    Text(String(request.viewerEmail.prefix(1)).uppercased())
+                        .font(.headline)
+                        .foregroundColor(.cyan)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(request.viewerName ?? request.viewerEmail)
                         .font(.headline)
                         .foregroundColor(.white)
                     Text(request.viewerEmail)
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
+                
                 Spacer()
-                if !request.createdAt.isEmpty {
-                    Text(formatDate(request.createdAt))
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                }
-            }
-            
-            if let name = request.viewerName, !name.isEmpty {
-                Text("From: \(name)")
+                
+                Text(request.createdAt, style: .relative)
                     .font(.caption)
                     .foregroundColor(.gray)
             }
             
+            // File info
+            HStack {
+                Image(systemName: "doc.fill")
+                    .foregroundColor(.cyan)
+                Text("Wants access to: \(request.fileName ?? "Unknown file")")
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(8)
+            
+            // Actions
             HStack(spacing: 12) {
                 Button(action: {
                     isProcessing = true
@@ -140,16 +171,16 @@ struct RequestRowView: View {
                             ProgressView().tint(.white)
                         } else {
                             Image(systemName: "checkmark")
-                            Text("Approve")
                         }
+                        Text("Approve")
                     }
-                    .font(.caption)
+                    .font(.subheadline)
                     .fontWeight(.bold)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     .background(Color.green)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .cornerRadius(10)
                 }
                 .disabled(isProcessing)
                 
@@ -164,26 +195,20 @@ struct RequestRowView: View {
                         Image(systemName: "xmark")
                         Text("Deny")
                     }
-                    .font(.caption)
+                    .font(.subheadline)
                     .fontWeight(.bold)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     .background(Color.red.opacity(0.8))
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .cornerRadius(10)
                 }
                 .disabled(isProcessing)
             }
         }
-        .padding(.vertical, 8)
-    }
-    
-    private func formatDate(_ isoString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: isoString) else { return "" }
-        let relative = RelativeDateTimeFormatter()
-        relative.unitsStyle = .abbreviated
-        return relative.localizedString(for: date, relativeTo: Date())
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
     }
 }
 

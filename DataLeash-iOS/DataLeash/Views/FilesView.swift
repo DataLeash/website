@@ -1,89 +1,105 @@
 import SwiftUI
-import PhotosUI
 
-// MARK: - Files View (Real API Data)
+// MARK: - Files View
+// Shows user's files with real data from Supabase
 
 struct FilesView: View {
-    @EnvironmentObject var authService: AuthService
-    @State private var files: [APIClient.FileResponse] = []
+    @State private var files: [SupabaseClient.FileItem] = []
     @State private var isLoading = true
     @State private var error: String?
-    @State private var showUploadSheet = false
     @State private var searchText = ""
     
-    var filteredFiles: [APIClient.FileResponse] {
+    var filteredFiles: [SupabaseClient.FileItem] {
         if searchText.isEmpty { return files }
         return files.filter { $0.originalName.localizedCaseInsensitiveContains(searchText) }
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Search Bar
+            // Search
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
                 TextField("Search files...", text: $searchText)
                     .foregroundColor(.white)
+                if !searchText.isEmpty {
+                    Button(action: { searchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                }
             }
             .padding()
-            .background(Color.white.opacity(0.1))
+            .background(Color.white.opacity(0.08))
             .cornerRadius(12)
             .padding()
             
+            // Content
             if isLoading {
                 Spacer()
-                ProgressView().tint(.cyan)
+                ProgressView().tint(.cyan).scaleEffect(1.5)
                 Spacer()
             } else if let error = error {
                 Spacer()
-                VStack(spacing: 15) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50))
-                        .foregroundColor(.orange)
-                    Text(error)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    Button("Retry") {
-                        Task { await loadFiles() }
-                    }
-                    .foregroundColor(.cyan)
-                }
+                errorView(error)
                 Spacer()
             } else if files.isEmpty {
                 Spacer()
-                VStack(spacing: 20) {
-                    Image(systemName: "doc.badge.plus")
-                        .font(.system(size: 60))
-                        .foregroundColor(.gray)
-                    Text("No files yet")
-                        .font(.title3)
-                        .foregroundColor(.white)
-                    Text("Upload files from the web dashboard")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
+                emptyView
                 Spacer()
             } else {
-                List {
-                    ForEach(filteredFiles, id: \.id) { file in
-                        NavigationLink(destination: FileDetailView(file: file)) {
-                            FileRowView(file: file)
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredFiles) { file in
+                            NavigationLink(destination: FileDetailScreen(file: file, onKill: { await loadFiles() })) {
+                                FileCard(file: file)
+                            }
                         }
-                        .listRowBackground(Color.white.opacity(0.05))
                     }
+                    .padding(.horizontal)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
         }
         .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
         .navigationTitle("My Files")
-        .task {
-            await loadFiles()
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await loadFiles() }
+        .refreshable { await loadFiles() }
+    }
+    
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+            Text(message)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+            Button("Retry") {
+                Task { await loadFiles() }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.cyan)
+            .foregroundColor(.black)
+            .fontWeight(.bold)
+            .cornerRadius(10)
         }
-        .refreshable {
-            await loadFiles()
+    }
+    
+    private var emptyView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+            Text("No files yet")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            Text("Upload files from the web dashboard\nat dataleash.vercel.app")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
         }
     }
     
@@ -92,7 +108,7 @@ struct FilesView: View {
         error = nil
         
         do {
-            files = try await APIClient.shared.getMyFiles()
+            files = try await SupabaseClient.shared.getMyFiles()
         } catch {
             self.error = error.localizedDescription
         }
@@ -101,47 +117,33 @@ struct FilesView: View {
     }
 }
 
-// MARK: - File Row
+// MARK: - File Card
 
-struct FileRowView: View {
-    let file: APIClient.FileResponse
-    
-    var iconName: String {
-        guard let type = file.mimeType else { return "doc.fill" }
-        if type.contains("image") { return "photo" }
-        if type.contains("pdf") { return "doc.richtext" }
-        if type.contains("video") { return "video" }
-        return "doc.fill"
-    }
+struct FileCard: View {
+    let file: SupabaseClient.FileItem
     
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: iconName)
-                .font(.title2)
-                .foregroundColor(file.isDestroyed ? .red : .cyan)
-                .frame(width: 40)
+        HStack(spacing: 16) {
+            // Icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(LinearGradient(colors: [.cyan.opacity(0.3), .blue.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 50, height: 50)
+                Image(systemName: file.iconName)
+                    .font(.title2)
+                    .foregroundColor(.cyan)
+            }
             
+            // Details
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(file.originalName)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    if file.isDestroyed {
-                        Text("KILLED")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.red)
-                            .cornerRadius(4)
-                    }
-                }
-                HStack {
-                    Text("\(file.totalViews ?? 0) views")
+                Text(file.originalName)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Label("\(file.totalViews)", systemImage: "eye")
                     Text("•")
-                    Text(formatDate(file.createdAt))
+                    Text(file.createdAt, style: .relative)
                 }
                 .font(.caption)
                 .foregroundColor(.gray)
@@ -149,68 +151,62 @@ struct FileRowView: View {
             
             Spacer()
             
+            // Status
+            VStack(alignment: .trailing, spacing: 4) {
+                Circle()
+                    .fill(file.isDestroyed ? Color.red : Color.green)
+                    .frame(width: 8, height: 8)
+                Text(file.isDestroyed ? "Killed" : "Active")
+                    .font(.caption2)
+                    .foregroundColor(file.isDestroyed ? .red : .green)
+            }
+            
             Image(systemName: "chevron.right")
                 .foregroundColor(.gray)
         }
-        .padding(.vertical, 8)
-    }
-    
-    private func formatDate(_ isoString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: isoString) else { return "" }
-        let relative = RelativeDateTimeFormatter()
-        relative.unitsStyle = .abbreviated
-        return relative.localizedString(for: date, relativeTo: Date())
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
     }
 }
 
-// MARK: - File Detail View
+// MARK: - File Detail Screen
 
-struct FileDetailView: View {
-    let file: APIClient.FileResponse
-    @State private var showKillConfirm = false
-    @State private var isKilling = false
-    @State private var showShareSheet = false
-    @Environment(\.dismiss) var dismiss
+struct FileDetailScreen: View {
+    let file: SupabaseClient.FileItem
+    let onKill: () async -> Void
     
-    var iconName: String {
-        guard let type = file.mimeType else { return "doc.fill" }
-        if type.contains("image") { return "photo" }
-        if type.contains("pdf") { return "doc.richtext" }
-        if type.contains("video") { return "video" }
-        return "doc.fill"
-    }
+    @State private var showKillAlert = false
+    @State private var isKilling = false
+    @State private var killError: String?
+    @Environment(\.dismiss) var dismiss
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // File Icon
-                Image(systemName: iconName)
-                    .font(.system(size: 60))
-                    .foregroundColor(file.isDestroyed ? .red : .cyan)
-                    .padding()
+            VStack(spacing: 24) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(colors: [.cyan.opacity(0.3), .blue.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 100, height: 100)
+                    Image(systemName: file.iconName)
+                        .font(.system(size: 44))
+                        .foregroundColor(.cyan)
+                }
+                .padding(.top, 20)
                 
+                // Name
                 Text(file.originalName)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
-                
-                if file.isDestroyed {
-                    Text("FILE KILLED - ACCESS REVOKED")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.red)
-                        .cornerRadius(8)
-                }
+                    .padding(.horizontal)
                 
                 // Stats
-                HStack(spacing: 30) {
-                    VStack {
-                        Text("\(file.totalViews ?? 0)")
+                HStack(spacing: 40) {
+                    VStack(spacing: 4) {
+                        Text("\(file.totalViews)")
                             .font(.title)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
@@ -218,82 +214,104 @@ struct FileDetailView: View {
                             .font(.caption)
                             .foregroundColor(.gray)
                     }
-                    VStack {
+                    
+                    VStack(spacing: 4) {
+                        Circle()
+                            .fill(file.isDestroyed ? Color.red : Color.green)
+                            .frame(width: 20, height: 20)
                         Text(file.isDestroyed ? "Killed" : "Active")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(file.isDestroyed ? .red : .green)
-                        Text("Status")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(file.isDestroyed ? .red : .green)
+                    }
+                }
+                .padding()
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(16)
+                
+                // Actions
+                VStack(spacing: 12) {
+                    // Copy Link
+                    Button(action: copyLink) {
+                        HStack {
+                            Image(systemName: "link")
+                            Text("Copy Share Link")
+                            Spacer()
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .padding()
+                        .background(Color.purple.opacity(0.2))
+                        .foregroundColor(.purple)
+                        .cornerRadius(12)
+                    }
+                    
+                    // Kill Button
+                    if !file.isDestroyed {
+                        Button(action: { showKillAlert = true }) {
+                            HStack {
+                                Image(systemName: "xmark.octagon.fill")
+                                Text("KILL FILE")
+                                Spacer()
+                                if isKilling {
+                                    ProgressView().tint(.white)
+                                }
+                            }
+                            .padding()
+                            .background(Color.red.opacity(0.2))
+                            .foregroundColor(.red)
+                            .fontWeight(.bold)
+                            .cornerRadius(12)
+                        }
+                        .disabled(isKilling)
                     }
                 }
                 .padding()
                 
-                // Actions
-                if !file.isDestroyed {
-                    VStack(spacing: 12) {
-                        ActionButton(title: "Copy Share Link", icon: "link", color: .purple) {
-                            let link = "\(Config.apiBaseURL)/view/\(file.id)"
-                            UIPasteboard.general.string = link
-                        }
-                        ActionButton(title: "KILL FILE", icon: "xmark.octagon.fill", color: .red) {
-                            showKillConfirm = true
-                        }
-                    }
-                    .padding()
+                if let error = killError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding()
                 }
+                
+                Spacer()
             }
-            .padding()
         }
         .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
         .navigationTitle("File Details")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Kill File?", isPresented: $showKillConfirm) {
+        .alert("Kill File?", isPresented: $showKillAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Kill", role: .destructive) {
-                Task {
-                    isKilling = true
-                    do {
-                        try await APIClient.shared.killFile(fileId: file.id)
-                        dismiss()
-                    } catch {
-                        isKilling = false
-                    }
-                }
+                Task { await killFile() }
             }
         } message: {
-            Text("This will permanently revoke all access. This cannot be undone.")
+            Text("This will permanently revoke all access to this file. This action cannot be undone.")
         }
     }
-}
-
-struct ActionButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let action: () -> Void
     
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                Text(title)
-                    .fontWeight(.medium)
-                Spacer()
-                Image(systemName: "chevron.right")
-            }
-            .foregroundColor(color)
-            .padding()
-            .background(color.opacity(0.15))
-            .cornerRadius(12)
+    private func copyLink() {
+        let link = "\(Config.apiBaseURL)/view/\(file.id)"
+        UIPasteboard.general.string = link
+    }
+    
+    private func killFile() async {
+        isKilling = true
+        killError = nil
+        
+        do {
+            try await SupabaseClient.shared.killFile(fileId: file.id)
+            await onKill()
+            dismiss()
+        } catch {
+            killError = error.localizedDescription
         }
+        
+        isKilling = false
     }
 }
 
 #Preview {
     NavigationStack {
         FilesView()
-            .environmentObject(AuthService.shared)
     }
 }

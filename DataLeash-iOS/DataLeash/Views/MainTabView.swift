@@ -1,103 +1,96 @@
 import SwiftUI
 
-// MARK: - Main Tab View (App Root after login)
+// MARK: - Main Tab View
+// Primary navigation with 4 tabs: Home, Files, Inbox, Profile
 
 struct MainTabView: View {
-    @EnvironmentObject var authService: AuthService
-    @EnvironmentObject var screenProtection: ScreenProtectionManager
     @State private var selectedTab = 0
+    @StateObject private var screenProtection = ScreenProtectionManager.shared
+    
+    init() {
+        // Custom tab bar appearance
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(red: 0.04, green: 0.09, blue: 0.16, alpha: 1.0)
+        
+        // Selected item
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor.cyan
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.cyan]
+        
+        // Normal item
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.gray
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.gray]
+        
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
     
     var body: some View {
         ZStack {
             TabView(selection: $selectedTab) {
-                // Tab 1: Dashboard
-                NavigationStack {
-                    DashboardView()
-                }
-                .tabItem {
-                    Image(systemName: "house.fill")
-                    Text("Dashboard")
-                }
-                .tag(0)
+                // Home Tab
+                HomeView()
+                    .tabItem {
+                        Label("Home", systemImage: "house.fill")
+                    }
+                    .tag(0)
                 
-                // Tab 2: Files
+                // Files Tab
                 NavigationStack {
                     FilesView()
                 }
                 .tabItem {
-                    Image(systemName: "doc.fill")
-                    Text("Files")
+                    Label("Files", systemImage: "folder.fill")
                 }
                 .tag(1)
                 
-                // Tab 3: Friends & Chat
-                NavigationStack {
-                    FriendsView()
-                }
-                .tabItem {
-                    Image(systemName: "person.2.fill")
-                    Text("Friends")
-                }
-                .tag(2)
-                
-                // Tab 4: Inbox
+                // Inbox Tab
                 NavigationStack {
                     InboxView()
                 }
                 .tabItem {
-                    Image(systemName: "tray.fill")
-                    Text("Inbox")
+                    Label("Inbox", systemImage: "tray.fill")
                 }
-                .tag(3)
+                .tag(2)
                 
-                // Tab 5: Profile
+                // Profile Tab
                 NavigationStack {
                     ProfileView()
                 }
                 .tabItem {
-                    Image(systemName: "person.circle")
-                    Text("Profile")
+                    Label("Profile", systemImage: "person.fill")
                 }
-                .tag(4)
+                .tag(3)
             }
-            .accentColor(.cyan)
+            .tint(.cyan)
             
-            // Screen recording blocker
-            if screenProtection.showBlocker {
-                SecurityBlockerView(isRecording: screenProtection.isRecording)
+            // Security Overlay
+            if screenProtection.isRecording {
+                SecurityBlockerView()
             }
         }
-        .onAppear {
-            configureTabBar()
-        }
-    }
-    
-    private func configureTabBar() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(red: 0.04, green: 0.09, blue: 0.16, alpha: 1.0)
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
 
 // MARK: - Security Blocker
 
 struct SecurityBlockerView: View {
-    let isRecording: Bool
-    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
+            
             VStack(spacing: 20) {
-                Image(systemName: isRecording ? "video.slash.fill" : "camera.slash.fill")
+                Image(systemName: "eye.slash.fill")
                     .font(.system(size: 60))
                     .foregroundColor(.red)
-                Text(isRecording ? "Screen Recording Detected" : "Screenshot Detected")
+                
+                Text("Screen Recording Detected")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
-                Text("Content is protected")
+                
+                Text("Content hidden for security")
+                    .font(.subheadline)
                     .foregroundColor(.gray)
             }
         }
@@ -107,5 +100,4 @@ struct SecurityBlockerView: View {
 #Preview {
     MainTabView()
         .environmentObject(AuthService.shared)
-        .environmentObject(ScreenProtectionManager.shared)
 }
