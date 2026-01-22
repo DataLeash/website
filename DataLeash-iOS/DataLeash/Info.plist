@@ -20,6 +20,17 @@
     <string>1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>io.dataleash.app</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>dataleash</string>
+            </array>
+        </dict>
+    </array>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>UIApplicationSceneManifest</key>
@@ -31,8 +42,6 @@
     <dict>
         <key>UIColorName</key>
         <string>LaunchScreenBackground</string>
-        <key>UIImageName</key>
-        <string>LaunchScreenIcon</string>
     </dict>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
