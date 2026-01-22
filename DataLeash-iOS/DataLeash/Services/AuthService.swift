@@ -1,10 +1,9 @@
 import Foundation
-import AuthenticationServices
 
 // MARK: - Auth Service
-// Handles OAuth authentication with Google/GitHub via Supabase
+// Email/Password authentication with Supabase
 
-class AuthService: NSObject, ObservableObject {
+class AuthService: ObservableObject {
     static let shared = AuthService()
     
     @Published var isAuthenticated = false
@@ -13,11 +12,7 @@ class AuthService: NSObject, ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    private var authSession: ASWebAuthenticationSession?
-    private var presentationAnchor: ASPresentationAnchor?
-    
-    private override init() {
-        super.init()
+    private init() {
         loadStoredSession()
     }
     
@@ -45,79 +40,18 @@ class AuthService: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: "currentUser")
     }
     
-    // MARK: - OAuth Login
-    
-    func signIn(with provider: OAuthProvider, anchor: ASPresentationAnchor) {
-        isLoading = true
-        error = nil
-        presentationAnchor = anchor
-        
-        let redirectURL = "\(Config.oauthRedirectScheme)://auth/callback"
-        let providerName = provider == .google ? "google" : "github"
-        
-        // Construct Supabase OAuth URL
-        let authURL = "\(Config.supabaseURL)/auth/v1/authorize?" +
-            "provider=\(providerName)" +
-            "&redirect_to=\(redirectURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-        
-        guard let url = URL(string: authURL) else {
-            isLoading = false
-            error = "Invalid auth URL"
-            return
-        }
-        
-        authSession = ASWebAuthenticationSession(
-            url: url,
-            callbackURLScheme: Config.oauthRedirectScheme
-        ) { [weak self] callbackURL, error in
-            DispatchQueue.main.async {
-                self?.handleAuthCallback(callbackURL: callbackURL, error: error)
-            }
-        }
-        
-        authSession?.presentationContextProvider = self
-        authSession?.prefersEphemeralWebBrowserSession = false
-        authSession?.start()
-    }
-    
-    private func handleAuthCallback(callbackURL: URL?, error: Error?) {
-        isLoading = false
-        
-        if let error = error {
-            self.error = error.localizedDescription
-            return
-        }
-        
-        guard let callbackURL = callbackURL,
-              let fragment = callbackURL.fragment else {
-            self.error = "No callback data received"
-            return
-        }
-        
-        // Parse the fragment to get access_token
-        var params: [String: String] = [:]
-        for pair in fragment.components(separatedBy: "&") {
-            let parts = pair.components(separatedBy: "=")
-            if parts.count == 2 {
-                params[parts[0]] = parts[1].removingPercentEncoding
-            }
-        }
-        
-        if let token = params["access_token"] {
-            self.accessToken = token
-            fetchUserProfile(token: token)
-        } else {
-            self.error = "No access token in response"
-        }
-    }
-    
-    // MARK: - Native Auth (Email/Password)
+    // MARK: - Sign Up
     
     func signUp(email: String, password: String, fullName: String) {
         isLoading = true
         error = nil
         
-        let url = URL(string: "\(Config.supabaseURL)/auth/v1/signup")!
+        guard let url = URL(string: "\(Config.supabaseURL)/auth/v1/signup") else {
+            isLoading = false
+            error = "Invalid URL"
+            return
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -145,41 +79,42 @@ class AuthService: NSObject, ObservableObject {
                     return
                 }
                 
-                // Sign up usually returns the user and session (if auto-confirm is on)
-                // or just user if confirmation is required.
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    if let errorCode = json["error_code"] as? String, let msg = json["msg"] as? String {
-                        self?.error = "Error \(errorCode): \(msg)"
+                    // Check for error
+                    if let errorMsg = json["error_description"] as? String {
+                        self?.error = errorMsg
+                        return
+                    }
+                    if let msg = json["msg"] as? String {
+                        self?.error = msg
                         return
                     }
                     
+                    // Check for access token (auto-confirm)
                     if let accessToken = json["access_token"] as? String {
                         self?.accessToken = accessToken
                         self?.fetchUserProfile(token: accessToken)
-                    } else if let _ = json["id"] as? String {
-                         // User created but no session (maybe verify email)
-                         // For now, try to sign in or just say check email
-                         // But usually we want to auto-login if possible.
-                         // If no token, maybe require login.
-                         self?.error = "Account created! Please sign in (check email if verification needed)."
                     } else {
-                        // Attempt to parse standard error
-                         if let msg = json["msg"] as? String {
-                             self?.error = msg
-                         } else {
-                             self?.error = "Sign up successful, please sign in."
-                         }
+                        // Email confirmation required
+                        self?.error = "Please check your email to confirm your account"
                     }
                 }
             }
         }.resume()
     }
     
+    // MARK: - Sign In
+    
     func signIn(email: String, password: String) {
         isLoading = true
         error = nil
         
-        let url = URL(string: "\(Config.supabaseURL)/auth/v1/token?grant_type=password")!
+        guard let url = URL(string: "\(Config.supabaseURL)/auth/v1/token?grant_type=password") else {
+            isLoading = false
+            error = "Invalid URL"
+            return
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -222,7 +157,9 @@ class AuthService: NSObject, ObservableObject {
             }
         }.resume()
     }
-
+    
+    // MARK: - Fetch User Profile
+    
     private func fetchUserProfile(token: String) {
         guard let url = URL(string: "\(Config.supabaseURL)/auth/v1/user") else { return }
         
@@ -254,7 +191,7 @@ class AuthService: NSObject, ObservableObject {
         }.resume()
     }
     
-    // MARK: - Logout
+    // MARK: - Sign Out
     
     func signOut() {
         accessToken = nil
@@ -262,19 +199,39 @@ class AuthService: NSObject, ObservableObject {
         isAuthenticated = false
         clearSession()
     }
-}
-
-// MARK: - OAuth Provider
-
-enum OAuthProvider {
-    case google
-    case github
-}
-
-// MARK: - ASWebAuthenticationSession Presentation
-
-extension AuthService: ASWebAuthenticationPresentationContextProviding {
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        return presentationAnchor ?? ASPresentationAnchor()
+    
+    // MARK: - Password Reset
+    
+    func resetPassword(email: String) {
+        isLoading = true
+        error = nil
+        
+        guard let url = URL(string: "\(Config.supabaseURL)/auth/v1/recover") else {
+            isLoading = false
+            error = "Invalid URL"
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        
+        let body = ["email": email]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    return
+                }
+                
+                // Success - show message
+                self?.error = "Password reset email sent! Check your inbox."
+            }
+        }.resume()
     }
 }

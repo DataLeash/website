@@ -1,186 +1,288 @@
 import SwiftUI
 
+// MARK: - Auth View
+// Email/Password authentication only
+
 struct AuthView: View {
     @EnvironmentObject var authService: AuthService
     @State private var isSignUp = false
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmPassword = ""
     @State private var fullName = ""
+    @State private var showForgotPassword = false
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 25) {
-                // Logo Section
-                VStack(spacing: 15) {
-                    Image(systemName: "shield.checkered")
-                        .font(.system(size: 80))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.cyan, .blue],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+        ZStack {
+            // Background
+            Color(red: 0.04, green: 0.09, blue: 0.16)
+                .ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 30) {
+                    // Logo
+                    VStack(spacing: 16) {
+                        Image(systemName: "shield.checkered")
+                            .font(.system(size: 80))
+                            .foregroundStyle(
+                                LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
                             )
-                        )
-                    
-                    Text("DataLeash")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                    
-                    Text("Own It. Control It. Revoke It.")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                .padding(.top, 40)
-                .padding(.bottom, 20)
-                
-                // Auth Picker
-                Picker("Auth Mode", selection: $isSignUp) {
-                    Text("Sign In").tag(false)
-                    Text("Sign Up").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                
-                // Form Fields
-                VStack(spacing: 15) {
-                    if isSignUp {
-                        CustomTextField(icon: "person.fill", placeholder: "Full Name", text: $fullName)
+                        
+                        Text("DataLeash")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        Text("Secure File Sharing")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
                     }
+                    .padding(.top, 60)
+                    .padding(.bottom, 20)
                     
-                    CustomTextField(icon: "envelope.fill", placeholder: "Email", text: $email)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                    
-                    CustomSecureField(icon: "lock.fill", placeholder: "Password", text: $password)
-                }
-                .padding(.horizontal)
-                
-                // Action Button
-                Button(action: {
-                    if isSignUp {
-                        authService.signUp(email: email, password: password, fullName: fullName)
-                    } else {
-                        authService.signIn(email: email, password: password)
-                    }
-                }) {
-                    HStack {
-                        if authService.isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Text(isSignUp ? "Create Account" : "Sign In")
-                                .fontWeight(.bold)
+                    // Form
+                    VStack(spacing: 16) {
+                        // Sign Up / Sign In Toggle
+                        Picker("Mode", selection: $isSignUp) {
+                            Text("Sign In").tag(false)
+                            Text("Sign Up").tag(true)
                         }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        LinearGradient(
-                            colors: [.cyan, .blue],
-                            startPoint: .leading,
-                            endPoint: .trailing
+                        .pickerStyle(.segmented)
+                        .padding(.bottom, 10)
+                        
+                        // Full Name (Sign Up only)
+                        if isSignUp {
+                            AuthTextField(
+                                icon: "person.fill",
+                                placeholder: "Full Name",
+                                text: $fullName
+                            )
+                        }
+                        
+                        // Email
+                        AuthTextField(
+                            icon: "envelope.fill",
+                            placeholder: "Email",
+                            text: $email,
+                            keyboardType: .emailAddress,
+                            autocapitalization: .never
                         )
-                    )
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                .disabled(email.isEmpty || password.isEmpty || (isSignUp && fullName.isEmpty) || authService.isLoading)
-                .opacity(authService.isLoading ? 0.7 : 1)
-                .padding(.horizontal)
-                
-                // Error Message
-                if let error = authService.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                
-                // Divider
-                HStack {
-                    Rectangle().frame(height: 1).foregroundColor(.gray.opacity(0.3))
-                    Text("OR").font(.caption).foregroundColor(.gray)
-                    Rectangle().frame(height: 1).foregroundColor(.gray.opacity(0.3))
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 10)
-                
-                // OAuth Buttons
-                VStack(spacing: 12) {
-                    OAuthButton(
-                        provider: .google,
-                        title: "Continue with Google",
-                        icon: "g.circle.fill",
-                        color: .white
-                    ) {
-                        signInOAuth(with: .google)
+                        
+                        // Password
+                        AuthSecureField(
+                            icon: "lock.fill",
+                            placeholder: "Password",
+                            text: $password
+                        )
+                        
+                        // Confirm Password (Sign Up only)
+                        if isSignUp {
+                            AuthSecureField(
+                                icon: "lock.fill",
+                                placeholder: "Confirm Password",
+                                text: $confirmPassword
+                            )
+                        }
+                        
+                        // Forgot Password
+                        if !isSignUp {
+                            Button(action: { showForgotPassword = true }) {
+                                Text("Forgot Password?")
+                                    .font(.caption)
+                                    .foregroundColor(.cyan)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+                        
+                        // Error Message
+                        if let error = authService.error {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(error.contains("sent") ? .green : .red)
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, 8)
+                        }
+                        
+                        // Submit Button
+                        Button(action: submit) {
+                            HStack {
+                                if authService.isLoading {
+                                    ProgressView()
+                                        .tint(.black)
+                                } else {
+                                    Text(isSignUp ? "Create Account" : "Sign In")
+                                        .fontWeight(.bold)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(colors: [.cyan, .blue], startPoint: .leading, endPoint: .trailing)
+                            )
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
+                        }
+                        .disabled(authService.isLoading || !isFormValid)
+                        .opacity(isFormValid ? 1 : 0.6)
                     }
+                    .padding()
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(20)
+                    .padding(.horizontal)
                     
-                    OAuthButton(
-                        provider: .github,
-                        title: "Continue with GitHub",
-                        icon: "chevron.left.forwardslash.chevron.right",
-                        color: .gray
-                    ) {
-                        signInOAuth(with: .github)
-                    }
+                    Spacer()
                 }
-                .padding(.horizontal)
-                
-                Spacer(minLength: 30)
             }
         }
-        .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordSheet(email: email)
+        }
     }
     
-    private func signInOAuth(with provider: OAuthProvider) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first else {
-            return
+    private var isFormValid: Bool {
+        if isSignUp {
+            return !email.isEmpty && !password.isEmpty && !fullName.isEmpty && password == confirmPassword && password.count >= 6
+        } else {
+            return !email.isEmpty && !password.isEmpty
         }
-        authService.signIn(with: provider, anchor: window)
+    }
+    
+    private func submit() {
+        if isSignUp {
+            authService.signUp(email: email, password: password, fullName: fullName)
+        } else {
+            authService.signIn(email: email, password: password)
+        }
     }
 }
 
-// MARK: - Components
+// MARK: - Auth Text Field
 
-struct CustomTextField: View {
+struct AuthTextField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+    var autocapitalization: TextInputAutocapitalization = .sentences
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             Image(systemName: icon)
                 .foregroundColor(.gray)
-                .frame(width: 20)
+                .frame(width: 24)
+            
             TextField(placeholder, text: $text)
                 .foregroundColor(.white)
+                .keyboardType(keyboardType)
+                .textInputAutocapitalization(autocapitalization)
+                .autocorrectionDisabled()
         }
         .padding()
-        .background(Color.white.opacity(0.1))
+        .background(Color.white.opacity(0.08))
         .cornerRadius(12)
     }
 }
 
-struct CustomSecureField: View {
+// MARK: - Auth Secure Field
+
+struct AuthSecureField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
+    @State private var showPassword = false
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             Image(systemName: icon)
                 .foregroundColor(.gray)
-                .frame(width: 20)
-            SecureField(placeholder, text: $text)
-                .foregroundColor(.white)
+                .frame(width: 24)
+            
+            if showPassword {
+                TextField(placeholder, text: $text)
+                    .foregroundColor(.white)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+            } else {
+                SecureField(placeholder, text: $text)
+                    .foregroundColor(.white)
+            }
+            
+            Button(action: { showPassword.toggle() }) {
+                Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                    .foregroundColor(.gray)
+            }
         }
         .padding()
-        .background(Color.white.opacity(0.1))
+        .background(Color.white.opacity(0.08))
         .cornerRadius(12)
+    }
+}
+
+// MARK: - Forgot Password Sheet
+
+struct ForgotPasswordSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var authService: AuthService
+    @State var email: String
+    @State private var sent = false
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Image(systemName: "envelope.badge.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.cyan)
+                
+                Text("Reset Password")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Text("Enter your email and we'll send you a link to reset your password.")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                
+                AuthTextField(
+                    icon: "envelope.fill",
+                    placeholder: "Email",
+                    text: $email,
+                    keyboardType: .emailAddress,
+                    autocapitalization: .never
+                )
+                
+                if sent {
+                    Text("Reset link sent! Check your email.")
+                        .foregroundColor(.green)
+                        .font(.caption)
+                }
+                
+                Button(action: {
+                    authService.resetPassword(email: email)
+                    sent = true
+                }) {
+                    Text("Send Reset Link")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.cyan)
+                        .foregroundColor(.black)
+                        .cornerRadius(12)
+                }
+                .disabled(email.isEmpty || authService.isLoading)
+                
+                Spacer()
+            }
+            .padding()
+            .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.cyan)
+                }
+            }
+        }
     }
 }
 

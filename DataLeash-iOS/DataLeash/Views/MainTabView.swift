@@ -1,10 +1,11 @@
 import SwiftUI
 
 // MARK: - Main Tab View
-// Primary navigation with 4 tabs: Home, Files, Inbox, Profile
+// Primary navigation with 4 tabs + Upload FAB
 
 struct MainTabView: View {
     @State private var selectedTab = 0
+    @State private var showUpload = false
     @StateObject private var screenProtection = ScreenProtectionManager.shared
     
     init() {
@@ -64,10 +65,35 @@ struct MainTabView: View {
             }
             .tint(.cyan)
             
+            // Upload FAB
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button(action: { showUpload = true }) {
+                        Image(systemName: "plus")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.black)
+                            .frame(width: 56, height: 56)
+                            .background(
+                                LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
+                            .clipShape(Circle())
+                            .shadow(color: .cyan.opacity(0.5), radius: 10)
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 80)
+                }
+            }
+            
             // Security Overlay
             if screenProtection.isRecording {
                 SecurityBlockerView()
             }
+        }
+        .sheet(isPresented: $showUpload) {
+            UploadView()
         }
     }
 }

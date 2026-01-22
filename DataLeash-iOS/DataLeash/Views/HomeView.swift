@@ -52,7 +52,7 @@ struct HomeView: View {
                 Text("Welcome back,")
                     .font(.subheadline)
                     .foregroundColor(.gray)
-                Text(authService.currentUser?.fullName?.components(separatedBy: " ").first ?? authService.currentUser?.email?.components(separatedBy: "@").first ?? "User")
+                Text(authService.currentUser?.fullName?.components(separatedBy: " ").first ?? authService.currentUser?.email.components(separatedBy: "@").first ?? "User")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
