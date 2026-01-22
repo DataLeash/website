@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { getAuthenticatedClient } from '@/lib/auth-helper'
 
 // Combined stats endpoint - single query instead of 4 separate ones
+// Supports both cookie auth (web) and Bearer token (iOS)
 export async function GET() {
     try {
-        const supabase = await createClient()
+        const { supabase, user, error: authError } = await getAuthenticatedClient()
 
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if (authError || !supabase || !user) {
+            return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
         }
 
         // Single query to get all file IDs

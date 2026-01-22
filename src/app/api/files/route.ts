@@ -1,16 +1,15 @@
-import { createClient } from '@/lib/supabase-server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getAuthenticatedClient } from '@/lib/auth-helper'
 
 // GET /api/files - Get all files for current user
+// Supports both cookie auth (web) and Bearer token (iOS)
 export async function GET() {
     try {
-        const supabase = await createClient()
+        const { supabase, user, error: authError } = await getAuthenticatedClient()
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-        if (authError || !user) {
+        if (authError || !supabase || !user) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: authError || 'Unauthorized' },
                 { status: 401 }
             )
         }
@@ -18,10 +17,10 @@ export async function GET() {
         const { data: files, error } = await supabase
             .from('files')
             .select(`
-        *,
-        access_logs (count),
-        permissions (count)
-      `)
+                *,
+                access_logs (count),
+                permissions (count)
+            `)
             .eq('owner_id', user.id)
             .eq('is_destroyed', false)
             .order('created_at', { ascending: false })
@@ -62,15 +61,13 @@ export async function GET() {
 }
 
 // DELETE /api/files - Kill all files (chain kill)
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
     try {
-        const supabase = await createClient()
+        const { supabase, user, error: authError } = await getAuthenticatedClient()
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-        if (authError || !user) {
+        if (authError || !supabase || !user) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: authError || 'Unauthorized' },
                 { status: 401 }
             )
         }
@@ -134,7 +131,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Mark files as destroyed
-        const { data: files, error } = await supabase
+        const { data: destroyedFiles, error } = await supabase
             .from('files')
             .update({
                 is_destroyed: true,
@@ -159,7 +156,7 @@ export async function DELETE(request: NextRequest) {
 
         return NextResponse.json({
             message: 'All files destroyed',
-            destroyed_count: files?.length || 0,
+            destroyed_count: destroyedFiles?.length || 0,
         })
     } catch (error) {
         console.error('Chain kill error:', error)

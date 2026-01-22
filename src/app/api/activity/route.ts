@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { getAuthenticatedClient } from '@/lib/auth-helper'
 
 // GET /api/activity - Get recent activity for current user's files
+// Supports both cookie auth (web) and Bearer token (iOS)
 export async function GET() {
     try {
-        const supabase = await createClient()
+        const { supabase, user, error: authError } = await getAuthenticatedClient()
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-        if (authError || !user) {
+        if (authError || !supabase || !user) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: authError || 'Unauthorized' },
                 { status: 401 }
             )
         }
