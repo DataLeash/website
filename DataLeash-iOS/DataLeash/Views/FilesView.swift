@@ -66,11 +66,14 @@ struct FilesView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(filteredFiles) { file in
-                            FileCardView(
-                                file: file,
-                                onShare: { shareFile(file) },
-                                onKill: { await killFile(file) }
-                            )
+                            NavigationLink(destination: FileDetailView(file: file)) {
+                                FileCardView(
+                                    file: file,
+                                    onShare: { shareFile(file) },
+                                    onKill: { await killFile(file) }
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     }
                     .padding(.horizontal)

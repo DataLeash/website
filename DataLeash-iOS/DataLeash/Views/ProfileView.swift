@@ -1,11 +1,12 @@
 import SwiftUI
 
 // MARK: - Profile View
-// User settings and sign out
+// User settings and navigation to features
 
 struct ProfileView: View {
     @EnvironmentObject var authService: AuthService
     @State private var showSignOutAlert = false
+    @State private var showChainKill = false
     
     var body: some View {
         ScrollView {
@@ -32,6 +33,20 @@ struct ProfileView: View {
                 }
                 .padding(.vertical, 20)
                 
+                // Quick Stats
+                HStack(spacing: 16) {
+                    NavigationLink(destination: FilesView()) {
+                        ProfileStatCard(icon: "folder.fill", title: "Files", color: .cyan)
+                    }
+                    NavigationLink(destination: InboxView()) {
+                        ProfileStatCard(icon: "tray.fill", title: "Requests", color: .orange)
+                    }
+                    NavigationLink(destination: ActiveSessionsView()) {
+                        ProfileStatCard(icon: "eye.fill", title: "Viewers", color: .green)
+                    }
+                }
+                .padding(.horizontal)
+                
                 // Account Section
                 VStack(alignment: .leading, spacing: 12) {
                     Text("ACCOUNT")
@@ -41,11 +56,17 @@ struct ProfileView: View {
                         .padding(.horizontal)
                     
                     VStack(spacing: 0) {
-                        ProfileRow(icon: "person.fill", title: "Edit Profile", color: .cyan)
+                        NavigationLink(destination: SettingsView()) {
+                            ProfileRow(icon: "gearshape.fill", title: "Settings", color: .cyan)
+                        }
                         Divider().background(Color.gray.opacity(0.3))
-                        ProfileRow(icon: "bell.fill", title: "Notifications", color: .orange)
+                        NavigationLink(destination: NotificationsView()) {
+                            ProfileRow(icon: "bell.fill", title: "Notifications", color: .orange)
+                        }
                         Divider().background(Color.gray.opacity(0.3))
-                        ProfileRow(icon: "lock.fill", title: "Privacy", color: .purple)
+                        NavigationLink(destination: ChangePasswordView()) {
+                            ProfileRow(icon: "key.fill", title: "Change Password", color: .blue)
+                        }
                     }
                     .background(Color.white.opacity(0.05))
                     .cornerRadius(12)
@@ -61,12 +82,50 @@ struct ProfileView: View {
                         .padding(.horizontal)
                     
                     VStack(spacing: 0) {
-                        ProfileRow(icon: "shield.checkered", title: "Security Settings", color: .green)
+                        NavigationLink(destination: SecurityView()) {
+                            ProfileRow(icon: "shield.checkmark.fill", title: "Security Dashboard", color: .green)
+                        }
                         Divider().background(Color.gray.opacity(0.3))
-                        ProfileRow(icon: "key.fill", title: "Change Password", color: .blue)
+                        NavigationLink(destination: AnalyticsView()) {
+                            ProfileRow(icon: "chart.bar.xaxis", title: "Analytics", color: .purple)
+                        }
+                        Divider().background(Color.gray.opacity(0.3))
+                        NavigationLink(destination: ActiveSessionsView()) {
+                            ProfileRow(icon: "person.2.fill", title: "Active Sessions", color: .cyan)
+                        }
+                        Divider().background(Color.gray.opacity(0.3))
+                        NavigationLink(destination: BlacklistView()) {
+                            ProfileRow(icon: "hand.raised.slash.fill", title: "Blacklist", color: .red)
+                        }
+                        Divider().background(Color.gray.opacity(0.3))
+                        NavigationLink(destination: LeakersView()) {
+                            ProfileRow(icon: "person.crop.circle.badge.exclamationmark.fill", title: "Suspected Leakers", color: .orange)
+                        }
                     }
                     .background(Color.white.opacity(0.05))
                     .cornerRadius(12)
+                    .padding(.horizontal)
+                }
+                
+                // Danger Zone
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("DANGER ZONE")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                    
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: ChainKillView()) {
+                            ProfileRow(icon: "flame.fill", title: "Chain Kill (Destroy All)", color: .red)
+                        }
+                    }
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                    )
                     .padding(.horizontal)
                 }
                 
@@ -79,11 +138,13 @@ struct ProfileView: View {
                         .padding(.horizontal)
                     
                     VStack(spacing: 0) {
-                        ProfileRow(icon: "questionmark.circle.fill", title: "Help & Support", color: .teal)
+                        Link(destination: URL(string: "https://dataleash.vercel.app/terms")!) {
+                            ProfileRow(icon: "doc.text.fill", title: "Terms of Service", color: .gray)
+                        }
                         Divider().background(Color.gray.opacity(0.3))
-                        ProfileRow(icon: "doc.text.fill", title: "Terms of Service", color: .gray)
-                        Divider().background(Color.gray.opacity(0.3))
-                        ProfileRow(icon: "hand.raised.fill", title: "Privacy Policy", color: .gray)
+                        Link(destination: URL(string: "https://dataleash.vercel.app/privacy")!) {
+                            ProfileRow(icon: "hand.raised.fill", title: "Privacy Policy", color: .gray)
+                        }
                     }
                     .background(Color.white.opacity(0.05))
                     .cornerRadius(12)
@@ -134,6 +195,29 @@ struct ProfileView: View {
             return "\(parts[0].prefix(1))\(parts[1].prefix(1))".uppercased()
         }
         return String(name.prefix(2)).uppercased()
+    }
+}
+
+// MARK: - Profile Stat Card
+
+struct ProfileStatCard: View {
+    let icon: String
+    let title: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.white)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
 }
 

@@ -1,4 +1,84 @@
 import Foundation
+import SwiftUI
+
+// MARK: - Shared Models
+
+// BlacklistEntry Model
+struct BlacklistEntry: Identifiable, Codable {
+    let id: String
+    let blocked_email: String
+    let blocked_name: String?
+    let reason: String?
+    let blocked_at: String
+    let match_count: Int
+    let last_match_at: String?
+    let ip_info: IpInfo?
+    let fingerprint: DeviceFingerprint?
+    
+    struct IpInfo: Codable {
+        let city: String?
+        let country: String?
+    }
+    
+    struct DeviceFingerprint: Codable {
+        let browser: String?
+        let os: String?
+    }
+}
+
+// FileAnalytics Model
+struct FileAnalytics: Identifiable {
+    let id: String
+    let fileName: String
+    let totalViews: Int
+    let uniqueViewers: Int
+    let avgDuration: Int
+    let threatEvents: Int
+    let lastViewed: Date?
+}
+
+// OverallAnalytics Model
+struct OverallAnalytics {
+    var totalViews: Int = 0
+    var uniqueViewers: Int = 0
+    var avgDuration: Int = 0
+    var threatEvents: Int = 0
+}
+
+// SecurityEvent Model
+struct SecurityEvent: Identifiable {
+    let id: String
+    let type: SecurityEventType
+    let message: String
+    let timestamp: Date
+    let details: String?
+    
+    enum SecurityEventType {
+        case blocked
+        case denied
+        case threat
+        case warning
+        case success
+        
+        var icon: String {
+            switch self {
+            case .blocked: return "hand.raised.slash.fill"
+            case .denied: return "xmark.circle.fill"
+            case .threat: return "exclamationmark.triangle.fill"
+            case .warning: return "exclamationmark.circle.fill"
+            case .success: return "checkmark.circle.fill"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .blocked, .denied, .threat: return .red
+            case .warning: return .orange
+            case .success: return .green
+            }
+        }
+    }
+}
 
 // MARK: - Supabase Client
 // Direct Supabase REST API calls with JWT token authentication
@@ -465,5 +545,343 @@ class SupabaseClient {
                 country: loc?["country"] as? String
             )
         }
+    }
+    
+    // MARK: - Blacklist
+    
+    func getBlacklist() async throws -> [BlacklistEntry] {
+        guard let userId = userId else { throw SupabaseError.notAuthenticated }
+        
+        guard let req = makeRequest(path: "blacklist", query: "owner_id=eq.\(userId)&order=blocked_at.desc") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: req)
+        
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+            // Table might not exist
+            let errorStr = String(data: data, encoding: .utf8) ?? "Unknown error"
+            if errorStr.contains("does not exist") {
+                return []
+            }
+            throw SupabaseError.serverError(errorStr)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        
+        do {
+            return try decoder.decode([BlacklistEntry].self, from: data)
+        } catch {
+            return []
+        }
+    }
+    
+    func addToBlacklist(email: String, reason: String) async throws {
+        guard let userId = userId, let token = token else { throw SupabaseError.notAuthenticated }
+        
+        let urlString = "\(Config.supabaseURL)/rest/v1/blacklist"
+        guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "owner_id": userId,
+            "blocked_email": email,
+            "reason": reason,
+            "blocked_at": ISO8601DateFormatter().string(from: Date()),
+            "match_count": 0
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+            throw SupabaseError.serverError("Failed to add to blacklist")
+        }
+    }
+    
+    func removeFromBlacklist(id: String) async throws {
+        guard let token = token else { throw SupabaseError.notAuthenticated }
+        
+        let urlString = "\(Config.supabaseURL)/rest/v1/blacklist?id=eq.\(id)"
+        guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+            throw SupabaseError.serverError("Failed to remove from blacklist")
+        }
+    }
+    
+    // MARK: - Leakers
+    
+    struct LeakerItem: Identifiable, Codable {
+        let id: String
+        let originalRecipientEmail: String
+        let originalRecipientName: String?
+        let fileId: String
+        let fileName: String?
+        let unauthorizedIp: String?
+        let unauthorizedLocation: String?
+        let detectionType: String
+        let similarityScore: Double
+        var status: String
+        let detectedAt: String
+        
+        enum CodingKeys: String, CodingKey {
+            case id
+            case originalRecipientEmail = "original_recipient_email"
+            case originalRecipientName = "original_recipient_name"
+            case fileId = "file_id"
+            case fileName = "file_name"
+            case unauthorizedIp = "unauthorized_ip"
+            case unauthorizedLocation = "unauthorized_location"
+            case detectionType = "detection_type"
+            case similarityScore = "similarity_score"
+            case status
+            case detectedAt = "detected_at"
+        }
+    }
+    
+    struct LeakerCounts {
+        var unreviewed: Int = 0
+        var confirmed: Int = 0
+        var blacklisted: Int = 0
+    }
+    
+    func getLeakers() async throws -> (leakers: [LeakerItem], counts: LeakerCounts) {
+        guard let userId = userId else { throw SupabaseError.notAuthenticated }
+        
+        guard let req = makeRequest(path: "suspected_leakers", query: "owner_id=eq.\(userId)&order=detected_at.desc") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: req)
+        
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+            return ([], LeakerCounts())
+        }
+        
+        let decoder = JSONDecoder()
+        
+        do {
+            let leakers = try decoder.decode([LeakerItem].self, from: data)
+            var counts = LeakerCounts()
+            
+            for leaker in leakers {
+                switch leaker.status {
+                case "unreviewed": counts.unreviewed += 1
+                case "confirmed_leak": counts.confirmed += 1
+                case "blacklisted": counts.blacklisted += 1
+                default: break
+                }
+            }
+            
+            return (leakers, counts)
+        } catch {
+            return ([], LeakerCounts())
+        }
+    }
+    
+    func updateLeakerStatus(leakerId: String, status: String) async throws {
+        guard let token = token else { throw SupabaseError.notAuthenticated }
+        
+        let urlString = "\(Config.supabaseURL)/rest/v1/suspected_leakers?id=eq.\(leakerId)"
+        guard let url = URL(string: urlString) else { throw SupabaseError.invalidResponse }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = ["status": status]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+            throw SupabaseError.serverError("Failed to update leaker status")
+        }
+    }
+    
+    // MARK: - Analytics
+    
+    func getFileAnalytics() async throws -> (files: [FileAnalytics], overall: OverallAnalytics) {
+        guard let userId = userId else { throw SupabaseError.notAuthenticated }
+        
+        var fileAnalytics: [FileAnalytics] = []
+        var overall = OverallAnalytics()
+        
+        // Get files with settings for views
+        guard let filesReq = makeRequest(path: "files", query: "owner_id=eq.\(userId)&is_destroyed=eq.false&select=id,original_name,settings,created_at") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (filesData, _) = try await URLSession.shared.data(for: filesReq)
+        guard let files = try? JSONSerialization.jsonObject(with: filesData) as? [[String: Any]] else {
+            return ([], overall)
+        }
+        
+        let fileIds = files.compactMap { $0["id"] as? String }
+        if fileIds.isEmpty { return ([], overall) }
+        
+        let idsJoined = fileIds.joined(separator: ",")
+        
+        // Get access logs for analytics
+        guard let logsReq = makeRequest(path: "access_logs", query: "file_id=in.(\(idsJoined))&select=file_id,action,duration") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (logsData, _) = try await URLSession.shared.data(for: logsReq)
+        let logs = (try? JSONSerialization.jsonObject(with: logsData) as? [[String: Any]]) ?? []
+        
+        // Aggregate logs by file
+        var logsByFile: [String: (views: Int, durations: [Int], threats: Int)] = [:]
+        var uniqueViewersSet: Set<String> = []
+        
+        for log in logs {
+            guard let fileId = log["file_id"] as? String,
+                  let action = log["action"] as? String else { continue }
+            
+            if logsByFile[fileId] == nil {
+                logsByFile[fileId] = (views: 0, durations: [], threats: 0)
+            }
+            
+            if action == "view" {
+                logsByFile[fileId]?.views += 1
+                if let duration = log["duration"] as? Int {
+                    logsByFile[fileId]?.durations.append(duration)
+                }
+                overall.totalViews += 1
+            } else if action == "blocked" || action == "screenshot_attempt" {
+                logsByFile[fileId]?.threats += 1
+                overall.threatEvents += 1
+            }
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        for file in files {
+            guard let id = file["id"] as? String,
+                  let name = file["original_name"] as? String else { continue }
+            
+            let settings = file["settings"] as? [String: Any]
+            let totalViews = settings?["total_views"] as? Int ?? logsByFile[id]?.views ?? 0
+            let uniqueViewers = settings?["unique_viewers"] as? Int ?? 0
+            let avgDuration = (logsByFile[id]?.durations.isEmpty == false) 
+                ? logsByFile[id]!.durations.reduce(0, +) / logsByFile[id]!.durations.count 
+                : 0
+            
+            var lastViewed: Date? = nil
+            if let lastViewedStr = settings?["last_viewed"] as? String {
+                lastViewed = dateFormatter.date(from: lastViewedStr)
+            }
+            
+            fileAnalytics.append(FileAnalytics(
+                id: id,
+                fileName: name,
+                totalViews: totalViews,
+                uniqueViewers: uniqueViewers,
+                avgDuration: avgDuration,
+                threatEvents: logsByFile[id]?.threats ?? 0,
+                lastViewed: lastViewed
+            ))
+            
+            overall.uniqueViewers += uniqueViewers
+        }
+        
+        // Calculate overall average duration
+        let allDurations = logsByFile.values.flatMap { $0.durations }
+        overall.avgDuration = allDurations.isEmpty ? 0 : allDurations.reduce(0, +) / allDurations.count
+        
+        return (fileAnalytics, overall)
+    }
+    
+    // MARK: - Security
+    
+    func getSecurityData() async throws -> (score: Int, events: [SecurityEvent]) {
+        guard let userId = userId else { throw SupabaseError.notAuthenticated }
+        
+        var score = 100
+        var events: [SecurityEvent] = []
+        
+        let fileIds = try await getFileIds()
+        if fileIds.isEmpty { return (score, events) }
+        
+        let idsJoined = fileIds.joined(separator: ",")
+        
+        // Get security-related logs
+        guard let logsReq = makeRequest(path: "access_logs", query: "file_id=in.(\(idsJoined))&action=in.(blocked,screenshot_attempt,access_denied)&order=timestamp.desc&limit=20") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (logsData, _) = try await URLSession.shared.data(for: logsReq)
+        guard let logs = try? JSONSerialization.jsonObject(with: logsData) as? [[String: Any]] else {
+            return (score, events)
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        for log in logs {
+            guard let id = log["id"] as? String,
+                  let action = log["action"] as? String,
+                  let timestampStr = log["timestamp"] as? String else { continue }
+            
+            let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
+            let location = log["location"] as? [String: Any]
+            
+            let eventType: SecurityEvent.SecurityEventType
+            let message: String
+            
+            switch action {
+            case "blocked":
+                eventType = .blocked
+                message = "Access blocked from suspicious device"
+                score = max(score - 5, 0)
+            case "screenshot_attempt":
+                eventType = .threat
+                message = "Screenshot attempt detected"
+                score = max(score - 10, 0)
+            case "access_denied":
+                eventType = .denied
+                message = "Access request denied"
+                score = max(score - 2, 0)
+            default:
+                eventType = .warning
+                message = action.replacingOccurrences(of: "_", with: " ").capitalized
+            }
+            
+            var details: String? = nil
+            if let city = location?["city"] as? String, let country = location?["country"] as? String {
+                details = "Location: \(city), \(country)"
+            }
+            
+            events.append(SecurityEvent(
+                id: id,
+                type: eventType,
+                message: message,
+                timestamp: timestamp,
+                details: details
+            ))
+        }
+        
+        // Ensure minimum score of 40 if there are any files
+        score = max(score, 40)
+        
+        return (score, events)
     }
 }

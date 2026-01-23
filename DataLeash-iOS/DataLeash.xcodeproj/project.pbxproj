@@ -36,6 +36,15 @@
 		111111111111111111111184 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111185 /* HomeView.swift */; };
 		111111111111111111111186 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111187 /* ProfileView.swift */; };
 		111111111111111111111188 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111189 /* UploadView.swift */; };
+		111111111111111111111190 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111191 /* SettingsView.swift */; };
+		111111111111111111111192 /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111193 /* NotificationsView.swift */; };
+		111111111111111111111194 /* ActiveSessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111195 /* ActiveSessionsView.swift */; };
+		111111111111111111111196 /* ChainKillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111197 /* ChainKillView.swift */; };
+		111111111111111111111198 /* FileDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111199 /* FileDetailView.swift */; };
+		11111111111111111111119A /* BlacklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119B /* BlacklistView.swift */; };
+		11111111111111111111119C /* LeakersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119D /* LeakersView.swift */; };
+		11111111111111111111119E /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119F /* AnalyticsView.swift */; };
+		1111111111111111111111A0 /* SecurityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111111111111111111111A1 /* SecurityView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +77,15 @@
 		111111111111111111111185 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		111111111111111111111187 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		111111111111111111111189 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
+		111111111111111111111191 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		111111111111111111111193 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
+		111111111111111111111195 /* ActiveSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionsView.swift; sourceTree = "<group>"; };
+		111111111111111111111197 /* ChainKillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChainKillView.swift; sourceTree = "<group>"; };
+		111111111111111111111199 /* FileDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDetailView.swift; sourceTree = "<group>"; };
+		11111111111111111111119B /* BlacklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistView.swift; sourceTree = "<group>"; };
+		11111111111111111111119D /* LeakersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeakersView.swift; sourceTree = "<group>"; };
+		11111111111111111111119F /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
+		1111111111111111111111A1 /* SecurityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityView.swift; sourceTree = "<group>"; };
 		111111111111111111111130 /* DataLeash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DataLeash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		111111111111111111111131 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -155,6 +173,15 @@
 				111111111111111111111185 /* HomeView.swift */,
 				111111111111111111111187 /* ProfileView.swift */,
 				111111111111111111111189 /* UploadView.swift */,
+				111111111111111111111191 /* SettingsView.swift */,
+				111111111111111111111193 /* NotificationsView.swift */,
+				111111111111111111111195 /* ActiveSessionsView.swift */,
+				111111111111111111111197 /* ChainKillView.swift */,
+				111111111111111111111199 /* FileDetailView.swift */,
+				11111111111111111111119B /* BlacklistView.swift */,
+				11111111111111111111119D /* LeakersView.swift */,
+				11111111111111111111119F /* AnalyticsView.swift */,
+				1111111111111111111111A1 /* SecurityView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -265,6 +292,15 @@
 				111111111111111111111184 /* HomeView.swift in Sources */,
 				111111111111111111111186 /* ProfileView.swift in Sources */,
 				111111111111111111111188 /* UploadView.swift in Sources */,
+				111111111111111111111190 /* SettingsView.swift in Sources */,
+				111111111111111111111192 /* NotificationsView.swift in Sources */,
+				111111111111111111111194 /* ActiveSessionsView.swift in Sources */,
+				111111111111111111111196 /* ChainKillView.swift in Sources */,
+				111111111111111111111198 /* FileDetailView.swift in Sources */,
+				11111111111111111111119A /* BlacklistView.swift in Sources */,
+				11111111111111111111119C /* LeakersView.swift in Sources */,
+				11111111111111111111119E /* AnalyticsView.swift in Sources */,
+				1111111111111111111111A0 /* SecurityView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
