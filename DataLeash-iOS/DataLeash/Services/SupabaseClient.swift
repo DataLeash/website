@@ -80,6 +80,35 @@ struct SecurityEvent: Identifiable {
     }
 }
 
+// MapLocation Model for WorldMapView
+struct MapLocation: Identifiable {
+    let id: String
+    let lat: Double
+    let lon: Double
+    let city: String
+    let country: String
+    let countryCode: String
+    let isActive: Bool
+    let isBlocked: Bool
+    let viewerCount: Int
+    let lastAccess: Date
+    let viewerEmail: String?
+    let viewerName: String?
+    let deviceType: String?
+    let browser: String?
+    let files: [String]
+    
+    var coordinate: (lat: Double, lon: Double) {
+        (lat, lon)
+    }
+    
+    var statusColor: Color {
+        if isBlocked { return .red }
+        if isActive { return .green }
+        return .cyan
+    }
+}
+
 // MARK: - Supabase Client
 // Direct Supabase REST API calls with JWT token authentication
 
@@ -884,4 +913,151 @@ class SupabaseClient {
         
         return (score, events)
     }
+    
+    // MARK: - Map Locations
+    
+    func getAccessLocations() async throws -> (locations: [MapLocation], stats: MapStats) {
+        guard let userId = userId else { throw SupabaseError.notAuthenticated }
+        
+        let fileIds = try await getFileIds()
+        if fileIds.isEmpty { return ([], MapStats()) }
+        
+        let idsJoined = fileIds.joined(separator: ",")
+        
+        // Get access logs with location data
+        guard let logsReq = makeRequest(path: "access_logs", query: "file_id=in.(\(idsJoined))&select=id,file_id,viewer_email,viewer_name,action,location,ip_info,device_fingerprint,timestamp&order=timestamp.desc&limit=200") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (logsData, _) = try await URLSession.shared.data(for: logsReq)
+        guard let logs = try? JSONSerialization.jsonObject(with: logsData) as? [[String: Any]] else {
+            return ([], MapStats())
+        }
+        
+        // Get file names for reference
+        guard let filesReq = makeRequest(path: "files", query: "id=in.(\(idsJoined))&select=id,original_name") else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let (filesData, _) = try await URLSession.shared.data(for: filesReq)
+        let files = (try? JSONSerialization.jsonObject(with: filesData) as? [[String: Any]]) ?? []
+        var fileNames: [String: String] = [:]
+        for file in files {
+            if let id = file["id"] as? String, let name = file["original_name"] as? String {
+                fileNames[id] = name
+            }
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        // Aggregate by location
+        var locationMap: [String: (logs: [[String: Any]], count: Int, lastAccess: Date, isActive: Bool, isBlocked: Bool)] = [:]
+        var countries: Set<String> = []
+        var activeCount = 0
+        var blockedCount = 0
+        
+        let fiveMinutesAgo = Date().addingTimeInterval(-300)
+        
+        for log in logs {
+            guard let location = log["location"] as? [String: Any],
+                  let lat = location["lat"] as? Double ?? location["latitude"] as? Double,
+                  let lon = location["lon"] as? Double ?? location["longitude"] as? Double,
+                  let city = location["city"] as? String else { continue }
+            
+            let country = location["country"] as? String ?? "Unknown"
+            let countryCode = location["country_code"] as? String ?? ""
+            let key = "\(lat),\(lon)"
+            
+            countries.insert(country)
+            
+            let timestamp = (log["timestamp"] as? String).flatMap { dateFormatter.date(from: $0) } ?? Date()
+            let action = log["action"] as? String ?? ""
+            let isActive = timestamp > fiveMinutesAgo && action == "view"
+            let isBlocked = action == "blocked" || action == "access_denied"
+            
+            if isActive { activeCount += 1 }
+            if isBlocked { blockedCount += 1 }
+            
+            if var existing = locationMap[key] {
+                existing.logs.append(log)
+                existing.count += 1
+                if timestamp > existing.lastAccess { existing.lastAccess = timestamp }
+                if isActive { existing.isActive = true }
+                if isBlocked { existing.isBlocked = true }
+                locationMap[key] = existing
+            } else {
+                locationMap[key] = (logs: [log], count: 1, lastAccess: timestamp, isActive: isActive, isBlocked: isBlocked)
+            }
+        }
+        
+        // Build MapLocation array
+        var locations: [MapLocation] = []
+        
+        for (key, data) in locationMap {
+            let coords = key.split(separator: ",")
+            guard coords.count == 2,
+                  let lat = Double(coords[0]),
+                  let lon = Double(coords[1]),
+                  let firstLog = data.logs.first,
+                  let location = firstLog["location"] as? [String: Any] else { continue }
+            
+            let city = location["city"] as? String ?? "Unknown"
+            let country = location["country"] as? String ?? "Unknown"
+            let countryCode = location["country_code"] as? String ?? ""
+            
+            let viewerEmail = firstLog["viewer_email"] as? String
+            let viewerName = firstLog["viewer_name"] as? String
+            
+            let fingerprint = firstLog["device_fingerprint"] as? [String: Any]
+            let deviceType = fingerprint?["device_type"] as? String
+            let browser = fingerprint?["browser"] as? String
+            
+            // Get files accessed at this location
+            var filesAccessed: [String] = []
+            for log in data.logs {
+                if let fileId = log["file_id"] as? String, let name = fileNames[fileId] {
+                    if !filesAccessed.contains(name) { filesAccessed.append(name) }
+                }
+            }
+            
+            locations.append(MapLocation(
+                id: key,
+                lat: lat,
+                lon: lon,
+                city: city,
+                country: country,
+                countryCode: countryCode,
+                isActive: data.isActive,
+                isBlocked: data.isBlocked,
+                viewerCount: data.count,
+                lastAccess: data.lastAccess,
+                viewerEmail: viewerEmail,
+                viewerName: viewerName,
+                deviceType: deviceType,
+                browser: browser,
+                files: filesAccessed
+            ))
+        }
+        
+        // Sort by last access (most recent first)
+        locations.sort { $0.lastAccess > $1.lastAccess }
+        
+        let stats = MapStats(
+            totalCountries: countries.count,
+            totalLocations: locations.count,
+            activeViewers: activeCount,
+            blockedAttempts: blockedCount
+        )
+        
+        return (locations, stats)
+    }
+}
+
+// MARK: - Map Stats
+struct MapStats {
+    var totalCountries: Int = 0
+    var totalLocations: Int = 0
+    var activeViewers: Int = 0
+    var blockedAttempts: Int = 0
 }

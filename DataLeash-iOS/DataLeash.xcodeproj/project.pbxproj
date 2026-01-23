@@ -45,6 +45,7 @@
 		11111111111111111111119C /* LeakersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119D /* LeakersView.swift */; };
 		11111111111111111111119E /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119F /* AnalyticsView.swift */; };
 		1111111111111111111111A0 /* SecurityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111111111111111111111A1 /* SecurityView.swift */; };
+		1111111111111111111111A2 /* WorldMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111111111111111111111A3 /* WorldMapView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -86,6 +87,7 @@
 		11111111111111111111119D /* LeakersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeakersView.swift; sourceTree = "<group>"; };
 		11111111111111111111119F /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
 		1111111111111111111111A1 /* SecurityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityView.swift; sourceTree = "<group>"; };
+		1111111111111111111111A3 /* WorldMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldMapView.swift; sourceTree = "<group>"; };
 		111111111111111111111130 /* DataLeash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DataLeash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		111111111111111111111131 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -182,6 +184,7 @@
 				11111111111111111111119D /* LeakersView.swift */,
 				11111111111111111111119F /* AnalyticsView.swift */,
 				1111111111111111111111A1 /* SecurityView.swift */,
+				1111111111111111111111A3 /* WorldMapView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -301,6 +304,7 @@
 				11111111111111111111119C /* LeakersView.swift in Sources */,
 				11111111111111111111119E /* AnalyticsView.swift in Sources */,
 				1111111111111111111111A0 /* SecurityView.swift in Sources */,
+				1111111111111111111111A2 /* WorldMapView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

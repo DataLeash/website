@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // MARK: - Chat Service
 // Handles real-time messaging via Supabase
@@ -133,5 +134,71 @@ class ChatService {
         
         // Send message with file attachment
         _ = try await sendMessage(to: friendId, content: "Shared a file with you", fileId: fileId)
+    }
+    
+    // MARK: - Upload Image to DataLeash
+    
+    func uploadImageToDataLeash(image: UIImage) async throws -> String {
+        guard let userId = AuthService.shared.currentUser?.id,
+              let token = AuthService.shared.accessToken else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        
+        // Compress image to JPEG
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            throw URLError(.cannotDecodeContentData)
+        }
+        
+        // Generate unique filename
+        let filename = "chat_image_\(UUID().uuidString).jpg"
+        let storagePath = "\(userId)/\(filename)"
+        
+        // Upload to Supabase Storage
+        let uploadUrl = URL(string: "\(Config.supabaseURL)/storage/v1/object/files/\(storagePath)")!
+        var uploadReq = URLRequest(url: uploadUrl)
+        uploadReq.httpMethod = "POST"
+        uploadReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        uploadReq.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        uploadReq.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        uploadReq.httpBody = imageData
+        
+        let (_, uploadResponse) = try await URLSession.shared.data(for: uploadReq)
+        
+        guard let httpResponse = uploadResponse as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(.cannotCreateFile)
+        }
+        
+        // Create file record in database
+        let fileId = UUID().uuidString
+        let createUrl = URL(string: "\(Config.supabaseURL)/rest/v1/files")!
+        var createReq = URLRequest(url: createUrl)
+        createReq.httpMethod = "POST"
+        createReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        createReq.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        createReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        createReq.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        
+        let fileRecord: [String: Any] = [
+            "id": fileId,
+            "user_id": userId,
+            "original_name": filename,
+            "encrypted_name": filename,
+            "storage_path": storagePath,
+            "mime_type": "image/jpeg",
+            "size": imageData.count,
+            "status": "active"
+        ]
+        
+        createReq.httpBody = try JSONSerialization.data(withJSONObject: fileRecord)
+        
+        let (_, createResponse) = try await URLSession.shared.data(for: createReq)
+        
+        guard let createHttpResponse = createResponse as? HTTPURLResponse,
+              (200...299).contains(createHttpResponse.statusCode) else {
+            throw URLError(.cannotCreateFile)
+        }
+        
+        return fileId
     }
 }

@@ -90,6 +90,10 @@ struct ProfileView: View {
                             ProfileRow(icon: "chart.bar.xaxis", title: "Analytics", color: .purple)
                         }
                         Divider().background(Color.gray.opacity(0.3))
+                        NavigationLink(destination: WorldMapView()) {
+                            ProfileRow(icon: "globe.americas.fill", title: "World Map", color: .blue)
+                        }
+                        Divider().background(Color.gray.opacity(0.3))
                         NavigationLink(destination: ActiveSessionsView()) {
                             ProfileRow(icon: "person.2.fill", title: "Active Sessions", color: .cyan)
                         }

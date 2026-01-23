@@ -11,6 +11,16 @@ struct HomeView: View {
     @State private var isLoading = true
     @State private var error: String?
     
+    private var displayName: String {
+        if let user = authService.currentUser {
+            if let fullName = user.fullName, let firstName = fullName.components(separatedBy: " ").first {
+                return firstName
+            }
+            return user.email.components(separatedBy: "@").first ?? "User"
+        }
+        return "User"
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -52,7 +62,7 @@ struct HomeView: View {
                 Text("Welcome back,")
                     .font(.subheadline)
                     .foregroundColor(.gray)
-                Text(authService.currentUser?.fullName?.components(separatedBy: " ").first ?? authService.currentUser?.email.components(separatedBy: "@").first ?? "User")
+                Text(displayName)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Chat View (Real Data)
 
@@ -10,6 +11,11 @@ struct ChatView: View {
     @State private var isSending = false
     @State private var error: String?
     @State private var showFilePicker = false
+    @State private var showImagePicker = false
+    @State private var showCamera = false
+    @State private var selectedImage: UIImage?
+    @State private var isUploadingImage = false
+    @State private var uploadProgress: Double = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -67,14 +73,53 @@ struct ChatView: View {
                 }
             }
             
+            // Upload progress bar
+            if isUploadingImage {
+                VStack(spacing: 4) {
+                    HStack {
+                        Image(systemName: "photo.fill")
+                            .foregroundColor(.cyan)
+                        Text("Uploading protected image...")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Spacer()
+                        Text("\(Int(uploadProgress * 100))%")
+                            .font(.caption)
+                            .foregroundColor(.cyan)
+                    }
+                    ProgressView(value: uploadProgress)
+                        .tint(.cyan)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color.black.opacity(0.5))
+            }
+            
             // Message Input
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
+                // Camera button
+                Button(action: { showCamera = true }) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.gray)
+                }
+                .disabled(isUploadingImage)
+                
+                // Photo library button
+                Button(action: { showImagePicker = true }) {
+                    Image(systemName: "photo.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.gray)
+                }
+                .disabled(isUploadingImage)
+                
                 // File attach button
                 Button(action: { showFilePicker = true }) {
                     Image(systemName: "paperclip")
-                        .font(.title3)
+                        .font(.system(size: 20))
                         .foregroundColor(.gray)
                 }
+                .disabled(isUploadingImage)
                 
                 // Text field
                 TextField("Message...", text: $newMessage)
@@ -93,7 +138,7 @@ struct ChatView: View {
                             .foregroundColor(newMessage.isEmpty ? .gray : .cyan)
                     }
                 }
-                .disabled(newMessage.isEmpty || isSending)
+                .disabled(newMessage.isEmpty || isSending || isUploadingImage)
             }
             .padding()
             .background(Color(red: 0.06, green: 0.12, blue: 0.2))
@@ -104,6 +149,18 @@ struct ChatView: View {
         .sheet(isPresented: $showFilePicker) {
             ShareFileInChatSheet(friendId: friend.friendId) {
                 Task { await loadMessages() }
+            }
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePickerView(image: $selectedImage)
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView(image: $selectedImage)
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if let image = newImage {
+                Task { await uploadAndShareImage(image) }
+                selectedImage = nil
             }
         }
         .task {
@@ -149,6 +206,42 @@ struct ChatView: View {
                 self.error = error.localizedDescription
             }
             isSending = false
+        }
+    }
+    
+    private func uploadAndShareImage(_ image: UIImage) async {
+        isUploadingImage = true
+        uploadProgress = 0
+        
+        // Determine which ID to use for the conversation
+        let friendUserId = (friend.userId == AuthService.shared.currentUser?.id) ? friend.friendId : friend.userId
+        
+        do {
+            // Simulate progress (actual upload uses URLSession)
+            for i in 1...5 {
+                try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+                await MainActor.run { uploadProgress = Double(i) * 0.15 }
+            }
+            
+            // Upload image and create protected file
+            let fileId = try await ChatService.shared.uploadImageToDataLeash(image: image)
+            await MainActor.run { uploadProgress = 0.9 }
+            
+            // Share in chat
+            try await ChatService.shared.shareFile(fileId: fileId, withFriendId: friendUserId)
+            await MainActor.run { uploadProgress = 1.0 }
+            
+            // Reload messages
+            await loadMessages()
+        } catch {
+            await MainActor.run {
+                self.error = "Failed to send image: \(error.localizedDescription)"
+            }
+        }
+        
+        await MainActor.run {
+            isUploadingImage = false
+            uploadProgress = 0
         }
     }
 }
@@ -301,5 +394,90 @@ struct ShareFileInChatSheet: View {
             friendEmail: "friend@example.com",
             friendName: "Alex Smith"
         ))
+    }
+}
+
+// MARK: - Image Picker (Photo Library)
+
+struct ImagePickerView: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) var dismiss
+    
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let parent: ImagePickerView
+        
+        init(_ parent: ImagePickerView) {
+            self.parent = parent
+        }
+        
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            parent.dismiss()
+            
+            guard let provider = results.first?.itemProvider else { return }
+            
+            if provider.canLoadObject(ofClass: UIImage.self) {
+                provider.loadObject(ofClass: UIImage.self) { [weak self] image, _ in
+                    DispatchQueue.main.async {
+                        self?.parent.image = image as? UIImage
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Camera Picker
+
+struct CameraPickerView: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) var dismiss
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraPickerView
+        
+        init(_ parent: CameraPickerView) {
+            self.parent = parent
+        }
+        
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            parent.dismiss()
+            
+            if let image = info[.originalImage] as? UIImage {
+                parent.image = image
+            }
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
     }
 }
