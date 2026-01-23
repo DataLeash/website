@@ -259,26 +259,14 @@ struct MessageBubble: View {
             VStack(alignment: isFromMe ? .trailing : .leading, spacing: 4) {
                 // File attachment if present
                 if let fileId = message.fileId {
-                    NavigationLink(destination: FileAccessView(fileId: fileId)) {
-                        HStack {
-                            Image(systemName: "doc.fill")
-                                .foregroundColor(.cyan)
-                            Text("Shared File")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                            Image(systemName: "arrow.right.circle")
-                                .foregroundColor(.cyan)
-                        }
-                        .padding(10)
-                        .background(Color.cyan.opacity(0.2))
-                        .cornerRadius(12)
-                    }
+                    FilePreviewBubble(fileId: fileId, isFromMe: isFromMe)
                 }
                 
                 // Message content
-                if let content = message.content, !content.isEmpty {
+                if let content = message.content, !content.isEmpty,
+                   content != "Shared a file with you" { // Don't show redundant text
                     Text(content)
-                        .foregroundColor(.white)
+                        .foregroundColor(isFromMe ? .black : .white)
                         .padding(12)
                         .background(isFromMe ? Color.cyan : Color.white.opacity(0.15))
                         .cornerRadius(16)
@@ -292,6 +280,168 @@ struct MessageBubble: View {
             
             if !isFromMe { Spacer() }
         }
+    }
+}
+
+// MARK: - File Preview Bubble
+
+struct FilePreviewBubble: View {
+    let fileId: String
+    let isFromMe: Bool
+    
+    @State private var fileInfo: FilePreviewInfo?
+    @State private var thumbnail: UIImage?
+    @State private var isLoading = true
+    
+    struct FilePreviewInfo {
+        let fileName: String
+        let mimeType: String
+        let isImage: Bool
+    }
+    
+    var body: some View {
+        NavigationLink(destination: FileAccessView(fileId: fileId)) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Preview content
+                ZStack {
+                    if let thumbnail = thumbnail {
+                        // Image preview with blur overlay
+                        Image(uiImage: thumbnail)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 200, height: 150)
+                            .clipped()
+                            .overlay(
+                                // Protection indicator
+                                VStack {
+                                    Spacer()
+                                    HStack {
+                                        Image(systemName: "lock.shield.fill")
+                                            .font(.caption)
+                                        Text("Protected")
+                                            .font(.caption2)
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.black.opacity(0.6))
+                                    .cornerRadius(8)
+                                    .padding(8)
+                                }
+                                , alignment: .bottomLeading
+                            )
+                    } else if fileInfo?.isImage == true {
+                        // Loading image placeholder
+                        Rectangle()
+                            .fill(Color.cyan.opacity(0.2))
+                            .frame(width: 200, height: 150)
+                            .overlay(
+                                ProgressView()
+                                    .tint(.cyan)
+                            )
+                    } else {
+                        // Document preview
+                        HStack(spacing: 12) {
+                            Image(systemName: iconForMimeType(fileInfo?.mimeType))
+                                .font(.system(size: 32))
+                                .foregroundColor(.cyan)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(fileInfo?.fileName ?? "Loading...")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                
+                                HStack(spacing: 4) {
+                                    Image(systemName: "lock.shield.fill")
+                                        .font(.caption2)
+                                    Text("Protected File")
+                                        .font(.caption)
+                                }
+                                .foregroundColor(.cyan)
+                            }
+                        }
+                        .padding()
+                        .frame(minWidth: 200)
+                    }
+                }
+                
+                // Tap to view footer
+                HStack {
+                    if fileInfo?.isImage == true {
+                        Text(fileInfo?.fileName ?? "Image")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("Tap to view")
+                            .font(.caption)
+                        Image(systemName: "arrow.right.circle.fill")
+                    }
+                    .foregroundColor(.cyan)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.black.opacity(0.3))
+            }
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isFromMe ? Color.cyan.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .task {
+            await loadFileInfo()
+        }
+    }
+    
+    private func loadFileInfo() async {
+        isLoading = true
+        
+        do {
+            let info = try await SupabaseClient.shared.getFilePreviewInfo(fileId: fileId)
+            await MainActor.run {
+                fileInfo = FilePreviewInfo(
+                    fileName: info.fileName,
+                    mimeType: info.mimeType,
+                    isImage: info.mimeType.hasPrefix("image/")
+                )
+            }
+            
+            // Load thumbnail for images
+            if info.mimeType.hasPrefix("image/") {
+                if let imageData = try? await SupabaseClient.shared.getFileThumbnail(fileId: fileId),
+                   let image = UIImage(data: imageData) {
+                    await MainActor.run {
+                        thumbnail = image
+                    }
+                }
+            }
+        } catch {
+            // Fallback to generic file
+            await MainActor.run {
+                fileInfo = FilePreviewInfo(fileName: "Shared File", mimeType: "application/octet-stream", isImage: false)
+            }
+        }
+        
+        await MainActor.run {
+            isLoading = false
+        }
+    }
+    
+    private func iconForMimeType(_ mimeType: String?) -> String {
+        guard let mime = mimeType else { return "doc.fill" }
+        if mime.hasPrefix("image/") { return "photo.fill" }
+        if mime.hasPrefix("video/") { return "video.fill" }
+        if mime.hasPrefix("audio/") { return "music.note" }
+        if mime.contains("pdf") { return "doc.text.fill" }
+        if mime.contains("zip") || mime.contains("archive") { return "doc.zipper" }
+        return "doc.fill"
     }
 }
 

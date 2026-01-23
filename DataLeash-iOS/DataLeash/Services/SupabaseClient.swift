@@ -1061,3 +1061,188 @@ struct MapStats {
     var activeViewers: Int = 0
     var blockedAttempts: Int = 0
 }
+
+// MARK: - File Preview Info
+struct FilePreviewInfoResponse {
+    let fileName: String
+    let mimeType: String
+    let storagePath: String
+    let status: String
+}
+
+// MARK: - File Receiver (who has access)
+struct FileReceiver: Identifiable {
+    let id: String
+    let email: String
+    let name: String?
+    let status: String
+    let lastViewedAt: Date?
+    let viewCount: Int
+    let grantedAt: Date
+}
+
+// MARK: - File Preview & Access Management
+extension SupabaseClient {
+    
+    // Get file preview info (name, mime type)
+    func getFilePreviewInfo(fileId: String) async throws -> FilePreviewInfoResponse {
+        guard let token = AuthService.shared.accessToken else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let url = URL(string: "\(Config.supabaseURL)/rest/v1/files?id=eq.\(fileId)&select=original_name,mime_type,storage_path,status")!
+        var request = URLRequest(url: url)
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        
+        guard let files = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              let file = files.first,
+              let fileName = file["original_name"] as? String,
+              let mimeType = file["mime_type"] as? String,
+              let storagePath = file["storage_path"] as? String else {
+            throw SupabaseError.invalidData
+        }
+        
+        let status = file["status"] as? String ?? "active"
+        
+        return FilePreviewInfoResponse(
+            fileName: fileName,
+            mimeType: mimeType,
+            storagePath: storagePath,
+            status: status
+        )
+    }
+    
+    // Get file thumbnail (for images)
+    func getFileThumbnail(fileId: String) async throws -> Data {
+        guard let token = AuthService.shared.accessToken else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // First get the storage path
+        let info = try await getFilePreviewInfo(fileId: fileId)
+        
+        // Download from storage
+        let url = URL(string: "\(Config.supabaseURL)/storage/v1/object/authenticated/files/\(info.storagePath)")!
+        var request = URLRequest(url: url)
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw SupabaseError.networkError
+        }
+        
+        return data
+    }
+    
+    // Get list of users who have access to a file
+    func getFileReceivers(fileId: String) async throws -> [FileReceiver] {
+        guard let token = AuthService.shared.accessToken else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // Get file_access entries
+        let accessUrl = URL(string: "\(Config.supabaseURL)/rest/v1/file_access?file_id=eq.\(fileId)&select=*")!
+        var accessReq = URLRequest(url: accessUrl)
+        accessReq.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        accessReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let (accessData, _) = try await URLSession.shared.data(for: accessReq)
+        
+        guard let accessList = try? JSONSerialization.jsonObject(with: accessData) as? [[String: Any]] else {
+            return []
+        }
+        
+        // Get access_log counts
+        let logUrl = URL(string: "\(Config.supabaseURL)/rest/v1/access_log?file_id=eq.\(fileId)&select=viewer_email")!
+        var logReq = URLRequest(url: logUrl)
+        logReq.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        logReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let (logData, _) = try await URLSession.shared.data(for: logReq)
+        let logs = (try? JSONSerialization.jsonObject(with: logData) as? [[String: Any]]) ?? []
+        
+        // Count views per email
+        var viewCounts: [String: Int] = [:]
+        for log in logs {
+            if let email = log["viewer_email"] as? String {
+                viewCounts[email, default: 0] += 1
+            }
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        
+        return accessList.compactMap { access -> FileReceiver? in
+            guard let id = access["id"] as? String,
+                  let email = access["viewer_email"] as? String else { return nil }
+            
+            let name = access["viewer_name"] as? String
+            let status = access["status"] as? String ?? "pending"
+            let grantedAt = (access["created_at"] as? String).flatMap { dateFormatter.date(from: $0) } ?? Date()
+            let lastViewed = (access["last_accessed_at"] as? String).flatMap { dateFormatter.date(from: $0) }
+            
+            return FileReceiver(
+                id: id,
+                email: email,
+                name: name,
+                status: status,
+                lastViewedAt: lastViewed,
+                viewCount: viewCounts[email] ?? 0,
+                grantedAt: grantedAt
+            )
+        }
+    }
+    
+    // Revoke access for a specific user
+    func revokeUserAccess(fileId: String, accessId: String) async throws {
+        guard let token = AuthService.shared.accessToken else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let url = URL(string: "\(Config.supabaseURL)/rest/v1/file_access?id=eq.\(accessId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let body: [String: Any] = ["status": "revoked"]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw SupabaseError.networkError
+        }
+    }
+    
+    // Revoke all access for a file
+    func revokeAllAccess(fileId: String) async throws {
+        guard let token = AuthService.shared.accessToken else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let url = URL(string: "\(Config.supabaseURL)/rest/v1/file_access?file_id=eq.\(fileId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let body: [String: Any] = ["status": "revoked"]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw SupabaseError.networkError
+        }
+    }
+}

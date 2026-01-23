@@ -7,10 +7,13 @@ struct FileDetailView: View {
     let file: SupabaseClient.FileItem
     
     @State private var viewers: [SupabaseClient.AccessRequestItem] = []
+    @State private var receivers: [FileReceiver] = []
     @State private var activity: [SupabaseClient.ActivityItem] = []
     @State private var isLoading = true
     @State private var showKillAlert = false
     @State private var showShareSheet = false
+    @State private var showRevokeAllAlert = false
+    @State private var revokeTarget: FileReceiver?
     @State private var copied = false
     @Environment(\.dismiss) var dismiss
     
@@ -26,7 +29,10 @@ struct FileDetailView: View {
                 // Quick Actions
                 quickActions
                 
-                // Viewers Section
+                // Shared With Section (NEW - with revoke)
+                sharedWithSection
+                
+                // Viewers Section (access requests)
                 viewersSection
                 
                 // Activity Section
@@ -49,6 +55,27 @@ struct FileDetailView: View {
             }
         } message: {
             Text("This will permanently destroy '\(file.originalName)' and revoke all access. This cannot be undone.")
+        }
+        .alert("Revoke All Access?", isPresented: $showRevokeAllAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Revoke All", role: .destructive) {
+                Task { await revokeAllAccess() }
+            }
+        } message: {
+            Text("This will immediately revoke access for all \(receivers.count) recipients.")
+        }
+        .alert("Revoke Access?", isPresented: .init(
+            get: { revokeTarget != nil },
+            set: { if !$0 { revokeTarget = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { revokeTarget = nil }
+            Button("Revoke", role: .destructive) {
+                if let target = revokeTarget {
+                    Task { await revokeAccess(target) }
+                }
+            }
+        } message: {
+            Text("Revoke access for \(revokeTarget?.name ?? revokeTarget?.email ?? "this user")?")
         }
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [file.shareableLink])
@@ -281,6 +308,108 @@ struct FileDetailView: View {
         }
     }
     
+    // MARK: - Shared With Section
+    
+    private var sharedWithSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Shared With")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                if !receivers.isEmpty {
+                    Button(action: { showRevokeAllAlert = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark.circle")
+                            Text("Revoke All")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    }
+                }
+            }
+            
+            if isLoading {
+                ProgressView().tint(.cyan).frame(maxWidth: .infinity).padding()
+            } else if receivers.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "person.slash")
+                        .font(.system(size: 30))
+                        .foregroundColor(.gray)
+                    Text("Not shared with anyone yet")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            } else {
+                ForEach(receivers.filter { $0.status != "revoked" }) { receiver in
+                    HStack(spacing: 12) {
+                        // Avatar
+                        ZStack {
+                            Circle()
+                                .fill(Color.cyan.opacity(0.2))
+                                .frame(width: 40, height: 40)
+                            Text(String(receiver.email.prefix(1)).uppercased())
+                                .font(.headline)
+                                .foregroundColor(.cyan)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(receiver.name ?? receiver.email)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                            
+                            HStack(spacing: 8) {
+                                Label("\(receiver.viewCount)", systemImage: "eye")
+                                if let lastViewed = receiver.lastViewedAt {
+                                    Text("•")
+                                    Text(lastViewed, style: .relative)
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        }
+                        
+                        Spacer()
+                        
+                        // Status badge
+                        Text(receiver.status.capitalized)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(receiverStatusColor(receiver.status))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(receiverStatusColor(receiver.status).opacity(0.2))
+                            .cornerRadius(4)
+                        
+                        // Revoke button
+                        Button(action: { revokeTarget = receiver }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.red.opacity(0.7))
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
+    }
+    
+    private func receiverStatusColor(_ status: String) -> Color {
+        switch status {
+        case "approved": return .green
+        case "pending": return .orange
+        case "revoked": return .red
+        default: return .gray
+        }
+    }
+    
     // MARK: - Actions
     
     private func copyLink() {
@@ -289,8 +418,30 @@ struct FileDetailView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
     }
     
+    private func revokeAccess(_ receiver: FileReceiver) async {
+        do {
+            try await SupabaseClient.shared.revokeUserAccess(fileId: file.id, accessId: receiver.id)
+            await loadDetails()
+        } catch {
+            print("Revoke error: \(error)")
+        }
+        revokeTarget = nil
+    }
+    
+    private func revokeAllAccess() async {
+        do {
+            try await SupabaseClient.shared.revokeAllAccess(fileId: file.id)
+            await loadDetails()
+        } catch {
+            print("Revoke all error: \(error)")
+        }
+    }
+    
     private func loadDetails() async {
         isLoading = true
+        
+        // Load receivers (who has access)
+        receivers = (try? await SupabaseClient.shared.getFileReceivers(fileId: file.id)) ?? []
         
         // Load viewers (access requests for this file)
         let allRequests = try? await SupabaseClient.shared.getAllRequests()
