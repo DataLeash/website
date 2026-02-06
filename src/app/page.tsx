@@ -149,7 +149,7 @@ export default function HomePage() {
 
       {/* Navigation Header - Enhanced */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-black/70 border-b border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.1)]">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between w-full">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2 group">
               <div className="relative">
@@ -188,7 +188,7 @@ export default function HomePage() {
 
         {/* Mobile Menu Dropdown - Enhanced */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-[0_10px_30px_rgba(59,130,246,0.1)] animate-fade-in">
+          <div className="md:hidden absolute top-full left-0 right-0 z-[60] bg-black/95 backdrop-blur-xl border-b border-blue-500/20 shadow-[0_10px_30px_rgba(59,130,246,0.1)]">
             <nav className="flex flex-col px-6 py-4 gap-1">
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">Features</a>
               <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">How It Works</a>
@@ -216,9 +216,9 @@ export default function HomePage() {
               </div>
 
               {/* Main Headline - Enhanced with glow effects */}
-              <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tighter text-white mb-8 leading-[1.1]">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tighter text-white mb-6 sm:mb-8 leading-[1.1]">
                 {/* 1st Line */}
-                <div className="flex flex-wrap gap-x-6">
+                <div className="flex flex-wrap gap-x-3 sm:gap-x-6">
                   <span className="drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]">
                     <EncryptedText text="Own It." startDelay={0} className="inline-block" />
                   </span>
@@ -232,7 +232,7 @@ export default function HomePage() {
                   <EncryptedText text="Revoke It." startDelay={1400} />
                 </span>
               </h1>
-              <p className="text-xl text-slate-400 mb-10 max-w-2xl font-light leading-relaxed drop-shadow-[0_0_10px_rgba(148,163,184,0.2)]">
+              <p className="text-base sm:text-lg md:text-xl text-slate-400 mb-8 sm:mb-10 max-w-2xl font-light leading-relaxed drop-shadow-[0_0_10px_rgba(148,163,184,0.2)]">
                 <EncryptedText text="Trusted by Defense, Government & Critical Infrastructure." startDelay={2500} />
               </p>
 
@@ -252,7 +252,7 @@ export default function HomePage() {
               `}</style>
 
                 {/* CTA Button - Enhanced with stronger glow */}
-                <Link href="#features" className="relative w-full sm:w-auto px-10 py-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white rounded-full font-bold transition-all shadow-[0_0_30px_rgba(59,130,246,0.4),0_0_60px_rgba(59,130,246,0.2)] hover:shadow-[0_0_40px_rgba(59,130,246,0.6),0_0_80px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2 group overflow-hidden">
+                <Link href="#features" className="relative w-full sm:w-auto px-6 sm:px-10 py-4 sm:py-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white rounded-full font-bold transition-all shadow-[0_0_30px_rgba(59,130,246,0.4),0_0_60px_rgba(59,130,246,0.2)] hover:shadow-[0_0_40px_rgba(59,130,246,0.6),0_0_80px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2 group overflow-hidden text-sm sm:text-base">
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                   <span className="relative z-10">Explore Features</span>
                   <ChevronDown className="w-5 h-5 relative z-10 group-hover:translate-y-1 transition-transform drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]" />
@@ -262,7 +262,7 @@ export default function HomePage() {
             </div>
 
             {/* Mobile: Hero Visual (shown only on mobile) */}
-            <div className="lg:hidden relative h-[350px] w-full flex items-center justify-center">
+            <div className="lg:hidden relative h-[250px] sm:h-[350px] w-full flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-transparent to-cyan-600/10 rounded-3xl" />
               <div className="relative text-center">
                 <div className="w-32 h-32 mx-auto mb-6 relative">
