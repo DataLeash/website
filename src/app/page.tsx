@@ -807,6 +807,12 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+            {/* Copyright */}
+            <div className="w-full text-center mt-8 pt-4 border-t border-slate-900/50">
+              <p className="text-slate-600 text-sm font-medium">
+                &copy; 2026 DataLeash Technologies. All rights reserved.
+              </p>
+            </div>
           </div>
         </div>
       </footer>
