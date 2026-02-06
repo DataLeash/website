@@ -198,7 +198,7 @@ export function AIChatbot() {
             {/* Launcher Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-6 right-6 z-50 p-3 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 group ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'opacity-100'
+                className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 p-3 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 group ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'opacity-100'
                     }`}
             >
                 <div className="relative">
@@ -206,19 +206,22 @@ export function AIChatbot() {
                     {/* Pulse ring */}
                     <span className="absolute -inset-1 rounded-full bg-blue-400 opacity-20 animate-ping" />
                 </div>
-                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900/95 text-xs px-3 py-1.5 rounded-lg border border-blue-500/30 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-blue-300 backdrop-blur">
+                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900/95 text-xs px-3 py-1.5 rounded-lg border border-blue-500/30 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-blue-300 backdrop-blur hidden sm:block">
                     Ask Us Anything
                 </span>
             </button>
 
-            {/* Chat Window */}
+            {/* Chat Window - Full screen on mobile, floating on desktop */}
             <div
-                className={`fixed bottom-6 right-6 z-50 w-[380px] md:w-[420px] h-[550px] bg-slate-950/95 backdrop-blur-xl border border-cyan-500/30 rounded-3xl shadow-[0_0_60px_rgba(0,212,255,0.2)] flex flex-col transition-all duration-500 origin-bottom-right overflow-hidden ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-90 opacity-0 translate-y-10 pointer-events-none'
+                className={`fixed z-50 bg-slate-950/95 backdrop-blur-xl border border-cyan-500/30 shadow-[0_0_60px_rgba(0,212,255,0.2)] flex flex-col transition-all duration-500 overflow-hidden
+                    inset-0 sm:inset-auto sm:bottom-4 sm:right-4 md:bottom-6 md:right-6
+                    sm:w-[360px] md:w-[400px] sm:h-[500px] md:h-[550px] sm:rounded-3xl sm:origin-bottom-right
+                    ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-90 opacity-0 translate-y-10 pointer-events-none'
                     }`}
             >
                 {/* Animated border glow */}
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 animate-pulse pointer-events-none" />
-                <div className="absolute inset-[1px] rounded-3xl bg-slate-950/95 pointer-events-none" />
+                <div className="absolute inset-0 sm:rounded-3xl bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 animate-pulse pointer-events-none" />
+                <div className="absolute inset-[1px] sm:rounded-3xl bg-slate-950/95 pointer-events-none" />
 
                 {/* Header */}
                 <div className="relative p-4 border-b border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 z-10">
