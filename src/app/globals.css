@@ -56,6 +56,48 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Mobile-specific fixes */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Ensure proper mobile width handling */
+main, section, header, footer {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Mobile typography scale */
+@media (max-width: 640px) {
+  h1 {
+    font-size: 2.5rem !important;
+    line-height: 1.1 !important;
+  }
+  
+  h2 {
+    font-size: 1.75rem !important;
+  }
+  
+  h3 {
+    font-size: 1.25rem !important;
+  }
+  
+  /* Fix table overflow on mobile */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  
+  /* Better touch targets */
+  button, a {
+    min-height: 44px;
+  }
 }
 
 /* Sophisticated Button - Less "Gamer", More SaaS */
