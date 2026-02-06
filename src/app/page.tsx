@@ -185,9 +185,11 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Mobile Menu Dropdown - Enhanced */}
-        {mobileMenuOpen && (
-          <div className="md:hidden fixed top-[60px] left-0 right-0 z-[100] bg-slate-950 border-b border-blue-500/30 shadow-2xl">
+      </header>
+
+      {/* Mobile Menu Dropdown - Enhanced (Moved outside header to avoid clipping) */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-slate-950 pt-24">
             <nav className="flex flex-col px-6 py-4 gap-2">
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all border-b border-slate-800">Features</a>
               <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all border-b border-slate-800">How It Works</a>
@@ -195,9 +197,8 @@ export default function HomePage() {
               <Link href="/faq" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all border-b border-slate-800">FAQ</Link>
               <a href="#founder" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all">Founder</a>
             </nav>
-          </div>
-        )}
-      </header>
+        </div>
+      )}
 
       {/* ... (Ticker and Nav remain) */}
 
