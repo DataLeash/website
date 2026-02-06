@@ -231,9 +231,13 @@ export default function HomePage() {
                   <EncryptedText text="Revoke It." startDelay={1400} />
                 </span>
               </h1>
-              <p className="text-base sm:text-lg md:text-xl text-slate-400 mb-8 sm:mb-10 max-w-2xl font-light leading-relaxed drop-shadow-[0_0_10px_rgba(148,163,184,0.2)]">
-                <EncryptedText text="Trusted by Defense, Government & Critical Infrastructure." startDelay={2500} />
-              </p>
+              
+              {/* Description - fixed height to prevent layout shift */}
+              <div className="h-[60px] sm:h-[50px] mb-6 sm:mb-8">
+                <p className="text-base sm:text-lg md:text-xl text-slate-400 max-w-2xl font-light leading-relaxed drop-shadow-[0_0_10px_rgba(148,163,184,0.2)]">
+                  <EncryptedText text="Trusted by Defense, Government & Critical Infrastructure." startDelay={2500} />
+                </p>
+              </div>
 
               {/* Add global fade-in keyframe if not present */}
               <style jsx global>{`
@@ -250,12 +254,12 @@ export default function HomePage() {
                 }
               `}</style>
 
-                {/* CTA Button - Enhanced with stronger glow */}
-                <Link href="#features" className="relative w-full sm:w-auto px-6 sm:px-10 py-4 sm:py-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white rounded-full font-bold transition-all shadow-[0_0_30px_rgba(59,130,246,0.4),0_0_60px_rgba(59,130,246,0.2)] hover:shadow-[0_0_40px_rgba(59,130,246,0.6),0_0_80px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2 group overflow-hidden text-sm sm:text-base">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                  <span className="relative z-10">Explore Features</span>
-                  <ChevronDown className="w-5 h-5 relative z-10 group-hover:translate-y-1 transition-transform drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]" />
-                </Link>
+              {/* CTA Button - Enhanced with stronger glow */}
+              <Link href="#features" className="relative w-full sm:w-auto px-6 sm:px-10 py-4 sm:py-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-cyan-500 text-white rounded-full font-bold transition-all shadow-[0_0_30px_rgba(59,130,246,0.4),0_0_60px_rgba(59,130,246,0.2)] hover:shadow-[0_0_40px_rgba(59,130,246,0.6),0_0_80px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2 group overflow-hidden text-sm sm:text-base">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <span className="relative z-10">Explore Features</span>
+                <ChevronDown className="w-5 h-5 relative z-10 group-hover:translate-y-1 transition-transform drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]" />
+              </Link>
 
 
             </div>
