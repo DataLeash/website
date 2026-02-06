@@ -20,13 +20,15 @@ export function EncryptedText({ text, className = '', hoverOnly = false, startDe
         if (intervalRef.current) clearInterval(intervalRef.current)
 
         intervalRef.current = setInterval(() => {
-            setDisplayText(prev =>
+            setDisplayText(
                 text
                     .split('')
                     .map((letter, index) => {
                         if (index < iteration) {
                             return text[index]
                         }
+                        // Keep spaces as spaces
+                        if (letter === ' ') return ' '
                         return chars[Math.floor(Math.random() * chars.length)]
                     })
                     .join('')
@@ -34,21 +36,30 @@ export function EncryptedText({ text, className = '', hoverOnly = false, startDe
 
             if (iteration >= text.length) {
                 if (intervalRef.current) clearInterval(intervalRef.current)
+                setDisplayText(text) // Ensure final text is correct
             }
 
-            iteration += 1 / 3
-        }, 30)
+            iteration += 0.5 // Faster resolution
+        }, 25)
     }
 
     useEffect(() => {
         if (!hoverOnly) {
-            if (startDelay > 0) {
-                setTimeout(scramble, startDelay)
-            } else {
-                scramble()
+            const timeoutId = setTimeout(scramble, startDelay)
+            
+            // Fallback: ensure text is shown after max animation time
+            const fallbackId = setTimeout(() => {
+                if (intervalRef.current) clearInterval(intervalRef.current)
+                setDisplayText(text)
+            }, startDelay + 3000) // Max 3 seconds for animation
+            
+            return () => {
+                clearTimeout(timeoutId)
+                clearTimeout(fallbackId)
+                if (intervalRef.current) clearInterval(intervalRef.current)
             }
         }
-    }, [])
+    }, [text, hoverOnly, startDelay])
 
     const handleMouseEnter = () => {
         setIsHovered(true)

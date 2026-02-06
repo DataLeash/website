@@ -156,7 +156,6 @@ export default function HomePage() {
                 <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
                 <DataLeashLogo size={28} />
               </div>
-              <span className="font-bold text-lg text-white group-hover:text-blue-300 transition-colors">DataLeash</span>
             </Link>
             <nav className="hidden md:flex items-center gap-1 text-sm">
               <a href="#features" className="px-4 py-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all">Features</a>
