@@ -1,7 +1,6 @@
 'use client'
 
-import { Shield, Lock, Globe, Server } from 'lucide-react'
-import { EncryptedText } from './EncryptedText'
+import { Shield, Globe, Users, Award } from 'lucide-react'
 import { DataLeashLogo } from './DataLeashLogo'
 
 export function MissionSection() {
@@ -35,7 +34,7 @@ export function MissionSection() {
             <div className="max-w-7xl mx-auto relative z-10">
                 <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-                    {/* Left: Manifesto */}
+                    {/* Left: Mission Statement */}
                     <div>
                         <div className="mb-8">
                             <DataLeashLogo size={60} />
@@ -43,84 +42,98 @@ export function MissionSection() {
 
                         <div className="inline-flex items-center gap-2 mb-6">
                             <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                            <span className="text-blue-500 text-xs font-mono tracking-[0.2em] font-bold">ABSOLUTE DOMINION</span>
+                            <span className="text-blue-500 text-xs font-mono tracking-[0.2em] font-bold">OUR MISSION</span>
                         </div>
 
                         <h2 className="text-4xl md:text-5xl font-bold text-white mb-8 tracking-tighter leading-tight">
-                            Ownership is <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Absolute.</span>
+                            Your Data. Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Control.</span>
                         </h2>
 
                         <div className="space-y-6 text-slate-400 text-lg leading-relaxed font-light">
                             <p>
-                                Possession is no longer 9/10ths of the law. It is the <strong className="text-white">only law</strong>.
+                                In today's digital landscape, sharing sensitive information means losing control of it. 
+                                Once a file is sent, traditional methods offer no way to manage who sees it or for how long.
                             </p>
                             <p>
-                                In the digital age, your data has been held hostage by infrastructure. Servers retain logs. Clouds retain backups.
-                                Third parties assume ownership by default.
+                                DataLeash changes this. We built a platform where you <strong className="text-white">maintain complete authority</strong> over 
+                                your documents—before, during, and after sharing.
                             </p>
                             <p className="text-slate-200 font-medium">
-                                We build the walls that make your information physically impossible for them to touch.
-                                Not a promise. Not a policy. A mathematical certainty.
+                                Whether you're protecting classified information, confidential contracts, or sensitive intelligence, 
+                                DataLeash ensures your data stays under your command.
                             </p>
-                        </div>
-
-                        <div className="mt-10 flex gap-4">
-                            <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded text-xs font-mono text-slate-400 flex items-center gap-2">
-                                <Shield className="w-3 h-3 text-blue-400" /> NO LOGS
-                            </div>
-                            <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded text-xs font-mono text-slate-400 flex items-center gap-2">
-                                <Globe className="w-3 h-3 text-cyan-400" /> NO BORDERS
-                            </div>
-                            <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded text-xs font-mono text-slate-400 flex items-center gap-2">
-                                <Server className="w-3 h-3 text-indigo-400" /> NO MASTERS
-                            </div>
                         </div>
                     </div>
 
-                    {/* Right: Technical Visualization */}
+                    {/* Right: Trust Indicators */}
                     <div className="relative">
-                        <div className="relative z-10 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 overflow-hidden group hover:border-blue-500/30 transition-colors duration-500">
-                            {/* Terminal Header */}
-                            <div className="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
-                                <div className="flex gap-1.5">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50" />
-                                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
-                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/50" />
+                        <div className="relative z-10 bg-black/60 backdrop-blur-xl border border-blue-500/20 rounded-2xl p-8 overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.1),inset_0_1px_0_rgba(255,255,255,0.03)]">
+                            
+                            {/* Background Video */}
+                            <div className="absolute inset-0 z-0 overflow-hidden rounded-2xl">
+                                <video
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="w-full h-full object-cover opacity-30"
+                                >
+                                    <source src="/questionvideo.mp4" type="video/mp4" />
+                                </video>
+                                {/* Dark overlay for text readability */}
+                                <div className="absolute inset-0 bg-black/70" />
+                            </div>
+                            
+                            <h3 className="text-xl font-bold text-white mb-8 relative z-10">Built for Critical Sectors</h3>
+                            
+                            <div className="grid grid-cols-2 gap-6 relative z-10">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-black/80 border border-blue-500/40 flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                                        <Shield className="w-6 h-6 text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-white mb-1">Defense</h4>
+                                        <p className="text-sm text-slate-500">Military & Defense contractors</p>
+                                    </div>
                                 </div>
-                                <div className="ml-auto text-xs font-mono text-slate-500">root@dataleash:~/dominion</div>
+                                
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-black/80 border border-blue-500/40 flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                                        <Globe className="w-6 h-6 text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-white mb-1">Government</h4>
+                                        <p className="text-sm text-slate-500">Federal & state agencies</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-black/80 border border-blue-500/40 flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                                        <Users className="w-6 h-6 text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-white mb-1">Intelligence</h4>
+                                        <p className="text-sm text-slate-500">Security & intelligence orgs</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-black/80 border border-blue-500/40 flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                                        <Award className="w-6 h-6 text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-white mb-1">Enterprise</h4>
+                                        <p className="text-sm text-slate-500">Critical infrastructure</p>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Terminal Content */}
-                            <div className="font-mono text-sm space-y-4">
-                                <div className="flex gap-3 text-slate-300">
-                                    <span className="text-blue-500 shrink-0">$</span>
-                                    <span className="typing-effect-fast">audit_system --deep</span>
-                                </div>
-                                <div className="text-slate-500 pl-5">
-                                    {'>'} TRACKING PING ... [ BLOCKED ]<br />
-                                    {'>'} SERVER LOGS ..... [ PURGED ]<br />
-                                    {'>'} THIRD PARTIES ... [ DENIED ]
-                                </div>
-
-                                <div className="flex gap-3 text-slate-300 pt-2">
-                                    <span className="text-blue-500 shrink-0">$</span>
-                                    <span className="typing-effect-delayed">print_verdict</span>
-                                </div>
-                                <div className="text-emerald-400/80 pl-5 leading-relaxed font-bold">
-                                    "Your keys. Your data. Your rules.
-                                    Everyone else is locked out."
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t border-slate-800/50 flex justify-between items-center">
-                                    <div className="text-xs text-slate-500">SYSTEM STATUS:</div>
-                                    <div className="text-xs font-bold text-emerald-400 animate-pulse">LOCKED DOWN</div>
+                            <div className="mt-8 pt-6 border-t border-blue-500/10 relative z-10">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-500">Protection Level:</span>
+                                    <span className="font-bold text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.5)]">Defense-Grade</span>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Decoding Decal behind */}
-                        <div className="absolute -z-10 -bottom-10 -right-10 text-9xl font-black text-slate-800/20 select-none overflow-hidden whitespace-nowrap">
-                            <EncryptedText text="DOMINION" />
                         </div>
                     </div>
 

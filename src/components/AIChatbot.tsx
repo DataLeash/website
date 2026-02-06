@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, X, Shield, Loader2, Lock, Zap } from 'lucide-react'
+import { Send, X, Lock, MessageCircle } from 'lucide-react'
+import Image from 'next/image'
 
 interface Message {
     role: 'user' | 'assistant'
@@ -68,7 +69,7 @@ function ShinyText({ children, className = '' }: { children: React.ReactNode, cl
 export function AIChatbot() {
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>([
-        { role: 'assistant', content: 'Secure channel open. What do you need to know about DataLeash? 🔐', isNew: false }
+        { role: 'assistant', content: 'Hello! I\'m here to help you learn about DataLeash and our security solutions. What would you like to know?', isNew: false }
     ])
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -137,16 +138,16 @@ export function AIChatbot() {
             {/* Launcher Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-[0_0_30px_rgba(0,212,255,0.5)] hover:shadow-[0_0_50px_rgba(0,212,255,0.7)] hover:scale-110 transition-all duration-300 group ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'opacity-100'
+                className={`fixed bottom-6 right-6 z-50 p-3 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 group ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'opacity-100'
                     }`}
             >
                 <div className="relative">
-                    <Shield className="w-6 h-6" />
+                    <MessageCircle className="w-6 h-6" />
                     {/* Pulse ring */}
-                    <span className="absolute -inset-1 rounded-2xl bg-cyan-400 opacity-30 animate-ping" />
+                    <span className="absolute -inset-1 rounded-full bg-blue-400 opacity-20 animate-ping" />
                 </div>
-                <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900/95 text-xs px-3 py-1.5 rounded-lg border border-cyan-500/50 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-cyan-300 font-mono backdrop-blur">
-                    CERBERUS AI
+                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900/95 text-xs px-3 py-1.5 rounded-lg border border-blue-500/30 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-blue-300 backdrop-blur">
+                    Ask Us Anything
                 </span>
             </button>
 
@@ -160,43 +161,29 @@ export function AIChatbot() {
                 <div className="absolute inset-[1px] rounded-3xl bg-slate-950/95 pointer-events-none" />
 
                 {/* Header */}
-                <div className="relative p-4 border-b border-cyan-500/20 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-900/80 z-10">
-                    {/* Scanline effect */}
-                    <div className="absolute inset-0 bg-[linear-gradient(rgba(0,212,255,0.03)_1px,transparent_1px)] bg-[size:100%_3px] pointer-events-none animate-scan" />
-
+                <div className="relative p-4 border-b border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 z-10">
                     <div className="flex items-center gap-3 relative z-10">
-                        {/* Avatar with effects */}
-                        <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center border border-cyan-500/50 overflow-hidden group">
-                            {/* Inner glow */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 to-transparent" />
-
-                            {/* Hex pattern */}
-                            <div className="absolute inset-0 opacity-20" style={{
-                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 0l10 5v10l-10 5L0 15V5z' fill='%2300d4ff' fill-opacity='0.1'/%3E%3C/svg%3E")`,
-                                backgroundSize: '10px 10px'
-                            }} />
-
-                            <Bot className="w-6 h-6 text-cyan-400 relative z-10" />
-
-                            {/* Shine sweep */}
-                            <div className="absolute inset-0 w-[200%] -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12" />
-
-                            {/* Scan line */}
-                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-scanline" />
+                        {/* Avatar Image */}
+                        <div className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-lg">
+                            <Image
+                                src="/cerberus-avatar.png"
+                                alt="DataLeash Assistant"
+                                fill
+                                className="object-cover"
+                            />
                         </div>
 
                         <div>
-                            <h3 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 text-lg tracking-widest font-mono flex items-center gap-2">
-                                CERBERUS
-                                <Zap className="w-4 h-4 text-yellow-400 animate-pulse" />
+                            <h3 className="font-semibold text-white text-base">
+                                DataLeash Assistant
                             </h3>
                             <div className="flex items-center gap-2">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                                 </span>
-                                <span className="text-[10px] text-emerald-400 font-mono tracking-widest font-bold uppercase">
-                                    Encrypted Channel
+                                <span className="text-xs text-emerald-400">
+                                    Online
                                 </span>
                             </div>
                         </div>
@@ -204,10 +191,9 @@ export function AIChatbot() {
 
                     <button
                         onClick={() => setIsOpen(false)}
-                        className="relative p-2 hover:bg-slate-800/50 rounded-xl transition-all text-slate-400 hover:text-white z-10 group"
+                        className="p-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-400 hover:text-white z-10"
                     >
                         <X className="w-5 h-5" />
-                        <span className="absolute inset-0 rounded-xl bg-red-500/0 group-hover:bg-red-500/10 transition-colors" />
                     </button>
                 </div>
 
@@ -297,7 +283,7 @@ export function AIChatbot() {
                     {/* Security badge */}
                     <div className="flex items-center justify-center gap-2 mt-3 text-[10px] text-slate-500">
                         <Lock className="w-3 h-3" />
-                        <span className="font-mono">End-to-end encrypted • Powered by Groq</span>
+                        <span>Secure • Powered by AI</span>
                     </div>
                 </form>
             </div>

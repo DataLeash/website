@@ -29,30 +29,21 @@ struct MainTabView: View {
     var body: some View {
         ZStack {
             TabView(selection: $selectedTab) {
-                // Home Tab
-                HomeView()
+                // Chats Tab (Home)
+                ChatListView()
                     .tabItem {
-                        Label("Home", systemImage: "house.fill")
+                        Label("Chats", systemImage: "bubble.left.and.bubble.right.fill")
                     }
                     .tag(0)
                 
-                // Files Tab
+                // Contacts Tab
                 NavigationStack {
-                    FilesView()
+                    FriendsView()
                 }
                 .tabItem {
-                    Label("Files", systemImage: "folder.fill")
+                    Label("Contacts", systemImage: "person.2.fill")
                 }
                 .tag(1)
-                
-                // Inbox Tab
-                NavigationStack {
-                    InboxView()
-                }
-                .tabItem {
-                    Label("Inbox", systemImage: "tray.fill")
-                }
-                .tag(2)
                 
                 // Profile Tab
                 NavigationStack {
@@ -61,39 +52,14 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
-                .tag(3)
+                .tag(2)
             }
             .tint(.cyan)
-            
-            // Upload FAB
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: { showUpload = true }) {
-                        Image(systemName: "plus")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.black)
-                            .frame(width: 56, height: 56)
-                            .background(
-                                LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            )
-                            .clipShape(Circle())
-                            .shadow(color: .cyan.opacity(0.5), radius: 10)
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 80)
-                }
-            }
             
             // Security Overlay
             if screenProtection.isRecording {
                 SecurityBlockerView()
             }
-        }
-        .sheet(isPresented: $showUpload) {
-            UploadView()
         }
     }
 }

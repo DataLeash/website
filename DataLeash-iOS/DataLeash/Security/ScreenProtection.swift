@@ -45,7 +45,7 @@ class ScreenProtectionManager: ObservableObject {
         // Log the screenshot attempt
         Task {
             if let email = AuthService.shared.currentUser?.email {
-                await FileService.shared.logAccess(
+                await SupabaseClient.shared.logAccess(
                     fileId: "global",
                     action: "screenshot_attempt",
                     email: email

@@ -191,45 +191,16 @@ function InteractiveSwarm() {
     return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0 opacity-80" />
 }
 
-// Glowing orbs - CSS only
+// Glowing orbs - Enhanced with floating animation
 function GlowingOrbs() {
     return (
         <>
-            <div
-                className="fixed pointer-events-none z-0"
-                style={{
-                    top: '-15%',
-                    left: '-5%',
-                    width: '400px',
-                    height: '400px',
-                    background: 'radial-gradient(circle, rgba(0,212,255,0.15) 0%, transparent 70%)',
-                    animation: 'pulse 10s ease-in-out infinite'
-                }}
-            />
-            <div
-                className="fixed pointer-events-none z-0"
-                style={{
-                    bottom: '-15%',
-                    right: '-5%',
-                    width: '500px',
-                    height: '500px',
-                    background: 'radial-gradient(circle, rgba(0,102,255,0.12) 0%, transparent 70%)',
-                    animation: 'pulse 12s ease-in-out infinite',
-                    animationDelay: '3s'
-                }}
-            />
-            <div
-                className="fixed pointer-events-none z-0"
-                style={{
-                    top: '50%',
-                    right: '15%',
-                    width: '250px',
-                    height: '250px',
-                    background: 'radial-gradient(circle, rgba(0,212,255,0.1) 0%, transparent 70%)',
-                    animation: 'pulse 8s ease-in-out infinite',
-                    animationDelay: '1.5s'
-                }}
-            />
+            {/* Primary orb - top left */}
+            <div className="floating-orb floating-orb-1" />
+            {/* Secondary orb - bottom right */}
+            <div className="floating-orb floating-orb-2" />
+            {/* Tertiary orb - center left */}
+            <div className="floating-orb floating-orb-3" />
         </>
     )
 }

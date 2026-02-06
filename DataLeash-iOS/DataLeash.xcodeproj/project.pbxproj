@@ -11,11 +11,9 @@
 		11111111111111111111111C /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111111D /* Config.swift */; };
 		11111111111111111111111E /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111111F /* Models.swift */; };
 		111111111111111111111120 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111121 /* AuthService.swift */; };
-		111111111111111111111122 /* FileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111123 /* FileService.swift */; };
 		111111111111111111111124 /* SecureContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111125 /* SecureContainer.swift */; };
 		111111111111111111111126 /* ScreenProtection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111127 /* ScreenProtection.swift */; };
 		111111111111111111111128 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111129 /* ContentView.swift */; };
-		11111111111111111111112A /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111112B /* LoginView.swift */; };
 		11111111111111111111112C /* FileAccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111112D /* FileAccessView.swift */; };
 		11111111111111111111112E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111112F /* Assets.xcassets */; };
 		111111111111111111111154 /* Friend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111150 /* Friend.swift */; };
@@ -23,29 +21,12 @@
 		111111111111111111111156 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111152 /* AuthView.swift */; };
 		111111111111111111111157 /* FriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111153 /* FriendsView.swift */; };
 		111111111111111111111160 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111161 /* MainTabView.swift */; };
-		111111111111111111111162 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111163 /* DashboardView.swift */; };
-		111111111111111111111164 /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111165 /* FilesView.swift */; };
-		111111111111111111111166 /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111167 /* InboxView.swift */; };
 		111111111111111111111168 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111169 /* ChatView.swift */; };
-		111111111111111111111170 /* DashboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111171 /* DashboardService.swift */; };
 		111111111111111111111172 /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111173 /* ChatService.swift */; };
-		111111111111111111111174 /* FilesManagementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111175 /* FilesManagementService.swift */; };
-		111111111111111111111176 /* InboxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111177 /* InboxService.swift */; };
-		111111111111111111111180 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111181 /* APIClient.swift */; };
 		111111111111111111111182 /* SupabaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111183 /* SupabaseClient.swift */; };
-		111111111111111111111184 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111185 /* HomeView.swift */; };
+		111111111111111111111184 /* ChatListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111185 /* ChatListView.swift */; };
 		111111111111111111111186 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111187 /* ProfileView.swift */; };
 		111111111111111111111188 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111189 /* UploadView.swift */; };
-		111111111111111111111190 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111191 /* SettingsView.swift */; };
-		111111111111111111111192 /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111193 /* NotificationsView.swift */; };
-		111111111111111111111194 /* ActiveSessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111195 /* ActiveSessionsView.swift */; };
-		111111111111111111111196 /* ChainKillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111197 /* ChainKillView.swift */; };
-		111111111111111111111198 /* FileDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111199 /* FileDetailView.swift */; };
-		11111111111111111111119A /* BlacklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119B /* BlacklistView.swift */; };
-		11111111111111111111119C /* LeakersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119D /* LeakersView.swift */; };
-		11111111111111111111119E /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111119F /* AnalyticsView.swift */; };
-		1111111111111111111111A0 /* SecurityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111111111111111111111A1 /* SecurityView.swift */; };
-		1111111111111111111111A2 /* WorldMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111111111111111111111A3 /* WorldMapView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,11 +34,9 @@
 		11111111111111111111111D /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		11111111111111111111111F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		111111111111111111111121 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
-		111111111111111111111123 /* FileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileService.swift; sourceTree = "<group>"; };
 		111111111111111111111125 /* SecureContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureContainer.swift; sourceTree = "<group>"; };
 		111111111111111111111127 /* ScreenProtection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenProtection.swift; sourceTree = "<group>"; };
 		111111111111111111111129 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		11111111111111111111112B /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		11111111111111111111112D /* FileAccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileAccessView.swift; sourceTree = "<group>"; };
 		11111111111111111111112F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		111111111111111111111150 /* Friend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Friend.swift; sourceTree = "<group>"; };
@@ -65,29 +44,12 @@
 		111111111111111111111152 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		111111111111111111111153 /* FriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsView.swift; sourceTree = "<group>"; };
 		111111111111111111111161 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
-		111111111111111111111163 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
-		111111111111111111111165 /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
-		111111111111111111111167 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		111111111111111111111169 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
-		111111111111111111111171 /* DashboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardService.swift; sourceTree = "<group>"; };
 		111111111111111111111173 /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
-		111111111111111111111175 /* FilesManagementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesManagementService.swift; sourceTree = "<group>"; };
-		111111111111111111111177 /* InboxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxService.swift; sourceTree = "<group>"; };
-		111111111111111111111181 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		111111111111111111111183 /* SupabaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseClient.swift; sourceTree = "<group>"; };
-		111111111111111111111185 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		111111111111111111111185 /* ChatListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatListView.swift; sourceTree = "<group>"; };
 		111111111111111111111187 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		111111111111111111111189 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
-		111111111111111111111191 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		111111111111111111111193 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
-		111111111111111111111195 /* ActiveSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionsView.swift; sourceTree = "<group>"; };
-		111111111111111111111197 /* ChainKillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChainKillView.swift; sourceTree = "<group>"; };
-		111111111111111111111199 /* FileDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDetailView.swift; sourceTree = "<group>"; };
-		11111111111111111111119B /* BlacklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistView.swift; sourceTree = "<group>"; };
-		11111111111111111111119D /* LeakersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeakersView.swift; sourceTree = "<group>"; };
-		11111111111111111111119F /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
-		1111111111111111111111A1 /* SecurityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityView.swift; sourceTree = "<group>"; };
-		1111111111111111111111A3 /* WorldMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldMapView.swift; sourceTree = "<group>"; };
 		111111111111111111111130 /* DataLeash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DataLeash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		111111111111111111111131 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -147,13 +109,8 @@
 			isa = PBXGroup;
 			children = (
 				111111111111111111111121 /* AuthService.swift */,
-				111111111111111111111123 /* FileService.swift */,
 				111111111111111111111151 /* SocialService.swift */,
-				111111111111111111111171 /* DashboardService.swift */,
 				111111111111111111111173 /* ChatService.swift */,
-				111111111111111111111175 /* FilesManagementService.swift */,
-				111111111111111111111177 /* InboxService.swift */,
-				111111111111111111111181 /* APIClient.swift */,
 				111111111111111111111183 /* SupabaseClient.swift */,
 			);
 			path = Services;
@@ -163,28 +120,14 @@
 			isa = PBXGroup;
 			children = (
 				111111111111111111111129 /* ContentView.swift */,
-				11111111111111111111112B /* LoginView.swift */,
 				11111111111111111111112D /* FileAccessView.swift */,
 				111111111111111111111152 /* AuthView.swift */,
 				111111111111111111111153 /* FriendsView.swift */,
 				111111111111111111111161 /* MainTabView.swift */,
-				111111111111111111111163 /* DashboardView.swift */,
-				111111111111111111111165 /* FilesView.swift */,
-				111111111111111111111167 /* InboxView.swift */,
 				111111111111111111111169 /* ChatView.swift */,
-				111111111111111111111185 /* HomeView.swift */,
+				111111111111111111111185 /* ChatListView.swift */,
 				111111111111111111111187 /* ProfileView.swift */,
 				111111111111111111111189 /* UploadView.swift */,
-				111111111111111111111191 /* SettingsView.swift */,
-				111111111111111111111193 /* NotificationsView.swift */,
-				111111111111111111111195 /* ActiveSessionsView.swift */,
-				111111111111111111111197 /* ChainKillView.swift */,
-				111111111111111111111199 /* FileDetailView.swift */,
-				11111111111111111111119B /* BlacklistView.swift */,
-				11111111111111111111119D /* LeakersView.swift */,
-				11111111111111111111119F /* AnalyticsView.swift */,
-				1111111111111111111111A1 /* SecurityView.swift */,
-				1111111111111111111111A3 /* WorldMapView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -271,40 +214,21 @@
 				11111111111111111111111C /* Config.swift in Sources */,
 				11111111111111111111111E /* Models.swift in Sources */,
 				111111111111111111111120 /* AuthService.swift in Sources */,
-				111111111111111111111122 /* FileService.swift in Sources */,
 				111111111111111111111124 /* SecureContainer.swift in Sources */,
 				111111111111111111111126 /* ScreenProtection.swift in Sources */,
 				111111111111111111111128 /* ContentView.swift in Sources */,
-				11111111111111111111112A /* LoginView.swift in Sources */,
 				11111111111111111111112C /* FileAccessView.swift in Sources */,
 				111111111111111111111154 /* Friend.swift in Sources */,
 				111111111111111111111155 /* SocialService.swift in Sources */,
 				111111111111111111111156 /* AuthView.swift in Sources */,
 				111111111111111111111157 /* FriendsView.swift in Sources */,
 				111111111111111111111160 /* MainTabView.swift in Sources */,
-				111111111111111111111162 /* DashboardView.swift in Sources */,
-				111111111111111111111164 /* FilesView.swift in Sources */,
-				111111111111111111111166 /* InboxView.swift in Sources */,
 				111111111111111111111168 /* ChatView.swift in Sources */,
-				111111111111111111111170 /* DashboardService.swift in Sources */,
 				111111111111111111111172 /* ChatService.swift in Sources */,
-				111111111111111111111174 /* FilesManagementService.swift in Sources */,
-				111111111111111111111176 /* InboxService.swift in Sources */,
-				111111111111111111111180 /* APIClient.swift in Sources */,
 				111111111111111111111182 /* SupabaseClient.swift in Sources */,
-				111111111111111111111184 /* HomeView.swift in Sources */,
+				111111111111111111111184 /* ChatListView.swift in Sources */,
 				111111111111111111111186 /* ProfileView.swift in Sources */,
 				111111111111111111111188 /* UploadView.swift in Sources */,
-				111111111111111111111190 /* SettingsView.swift in Sources */,
-				111111111111111111111192 /* NotificationsView.swift in Sources */,
-				111111111111111111111194 /* ActiveSessionsView.swift in Sources */,
-				111111111111111111111196 /* ChainKillView.swift in Sources */,
-				111111111111111111111198 /* FileDetailView.swift in Sources */,
-				11111111111111111111119A /* BlacklistView.swift in Sources */,
-				11111111111111111111119C /* LeakersView.swift in Sources */,
-				11111111111111111111119E /* AnalyticsView.swift in Sources */,
-				1111111111111111111111A0 /* SecurityView.swift in Sources */,
-				1111111111111111111111A2 /* WorldMapView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -16,6 +16,7 @@ struct ChatView: View {
     @State private var selectedImage: UIImage?
     @State private var isUploadingImage = false
     @State private var uploadProgress: Double = 0
+    @State private var friendStatus: ChatService.UserStatus?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -144,8 +145,37 @@ struct ChatView: View {
             .background(Color(red: 0.06, green: 0.12, blue: 0.2))
         }
         .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
-        .navigationTitle(friend.friendName ?? friend.friendEmail ?? "Chat")
+        .background(Color(red: 0.04, green: 0.09, blue: 0.16).ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 0) {
+                    Text(friend.friendName ?? friend.friendEmail ?? "Chat")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    if let status = friendStatus {
+                        if status.isOnline {
+                            Text("Online")
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                        } else if let lastSeen = status.lastSeen {
+                            Text("Last seen \(lastSeen, style: .relative) ago")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        } else {
+                            Text("Offline")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        }
+                    } else {
+                        Text("Offline")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $showFilePicker) {
             ShareFileInChatSheet(friendId: friend.friendId) {
                 Task { await loadMessages() }
@@ -164,7 +194,11 @@ struct ChatView: View {
             }
         }
         .task {
+            await ChatService.shared.updateMyStatus(isOnline: true)
             await loadMessages()
+        }
+        .onDisappear {
+            Task { await ChatService.shared.updateMyStatus(isOnline: false) }
         }
         .refreshable {
             await loadMessages()
@@ -180,6 +214,19 @@ struct ChatView: View {
         
         do {
             messages = try await ChatService.shared.getMessages(withUserId: friendUserId)
+            
+            // Mark unread messages from friend as read
+            let unreadIds = messages
+                .filter { $0.senderId == friendUserId && $0.status != "read" }
+                .map { $0.id }
+            
+            if !unreadIds.isEmpty {
+                await ChatService.shared.markMessagesAsRead(unreadIds)
+            }
+            
+            // Fetch friend status
+            friendStatus = try await ChatService.shared.getUserStatus(userId: friendUserId)
+            
         } catch {
             self.error = error.localizedDescription
         }
@@ -253,33 +300,81 @@ struct MessageBubble: View {
     let isFromMe: Bool
     
     var body: some View {
-        HStack {
+        HStack(alignment: .bottom, spacing: 8) {
             if isFromMe { Spacer() }
             
             VStack(alignment: isFromMe ? .trailing : .leading, spacing: 4) {
-                // File attachment if present
-                if let fileId = message.fileId {
-                    FilePreviewBubble(fileId: fileId, isFromMe: isFromMe)
+                // Content Bubble
+                VStack(alignment: isFromMe ? .trailing : .leading, spacing: 4) {
+                    // File attachment
+                    if let fileId = message.fileId {
+                        FilePreviewBubble(fileId: fileId, isFromMe: isFromMe)
+                            .padding(.bottom, 4)
+                    }
+                    
+                    // Text Content
+                    if let content = message.content, !content.isEmpty, content != "Shared a file with you" {
+                        Text(content)
+                            .foregroundColor(isFromMe ? .black : .white)
+                    }
+                    
+                    // Metadata (Time + Status)
+                    HStack(spacing: 4) {
+                        if !isFromMe { Spacer() }
+                        
+                        Text(message.createdAt, style: .time)
+                            .font(.caption2)
+                            .foregroundColor(isFromMe ? .black.opacity(0.6) : .gray)
+                        
+                        if isFromMe {
+                            StatusIndicator(status: message.status)
+                        }
+                    }
+                    .padding(.top, 2)
                 }
-                
-                // Message content
-                if let content = message.content, !content.isEmpty,
-                   content != "Shared a file with you" { // Don't show redundant text
-                    Text(content)
-                        .foregroundColor(isFromMe ? .black : .white)
-                        .padding(12)
-                        .background(isFromMe ? Color.cyan : Color.white.opacity(0.15))
-                        .cornerRadius(16)
-                }
-                
-                // Time
-                Text(message.createdAt, style: .time)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+                .padding(12)
+                .background(isFromMe ? Color.cyan : Color.white.opacity(0.15))
+                .cornerRadius(16, corners: isFromMe ? [.topLeft, .topRight, .bottomLeft] : [.topLeft, .topRight, .bottomRight])
             }
             
             if !isFromMe { Spacer() }
         }
+    }
+}
+
+struct StatusIndicator: View {
+    let status: String?
+    
+    var body: some View {
+        HStack(spacing: -4) {
+             if status == "read" {
+                 Image(systemName: "checkmark")
+                 Image(systemName: "checkmark")
+             } else if status == "delivered" {
+                 Image(systemName: "checkmark")
+                 Image(systemName: "checkmark")
+             } else {
+                 Image(systemName: "checkmark")
+             }
+        }
+        .font(.system(size: 10, weight: .bold))
+        .foregroundColor(status == "read" ? .blue : (status == nil ? .gray.opacity(0.5) : .black.opacity(0.6)))
+    }
+}
+
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        return Path(path.cgPath)
     }
 }
 
@@ -451,7 +546,7 @@ struct ShareFileInChatSheet: View {
     let friendId: String
     let onComplete: () -> Void
     @Environment(\.dismiss) var dismiss
-    @State private var files: [FilesManagementService.UserFile] = []
+    @State private var files: [SupabaseClient.FileItem] = []
     @State private var isLoading = true
     @State private var isSharing = false
     
@@ -473,7 +568,7 @@ struct ShareFileInChatSheet: View {
                     }
                 } else {
                     List {
-                        ForEach(files.filter { !$0.isKilled }) { file in
+                        ForEach(files) { file in
                             Button(action: { shareFile(file) }) {
                                 HStack {
                                     Image(systemName: file.iconName)
@@ -481,7 +576,7 @@ struct ShareFileInChatSheet: View {
                                     VStack(alignment: .leading) {
                                         Text(file.originalName)
                                             .foregroundColor(.white)
-                                        Text("\(file.viewCount) views")
+                                        Text("\(file.totalViews) views")
                                             .font(.caption)
                                             .foregroundColor(.gray)
                                     }
@@ -510,17 +605,23 @@ struct ShareFileInChatSheet: View {
                     Button("Cancel") { dismiss() }
                         .foregroundColor(.cyan)
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: UploadView()) {
+                        Image(systemName: "plus")
+                            .foregroundColor(.cyan)
+                    }
+                }
             }
             .task {
                 do {
-                    files = try await FilesManagementService.shared.getMyFiles()
+                    files = try await SupabaseClient.shared.getMyFiles()
                 } catch { }
                 isLoading = false
             }
         }
     }
     
-    private func shareFile(_ file: FilesManagementService.UserFile) {
+    private func shareFile(_ file: SupabaseClient.FileItem) {
         isSharing = true
         Task {
             do {

@@ -248,7 +248,7 @@ struct FileAccessView: View {
         
         do {
             // Check if we have access
-            let response = try await FileService.shared.requestAccess(
+            let response = try await SupabaseClient.shared.requestAccess(
                 fileId: fileId,
                 email: email,
                 name: authService.currentUser?.fullName ?? email,
@@ -278,7 +278,7 @@ struct FileAccessView: View {
         }
         
         do {
-            let response = try await FileService.shared.requestAccess(
+            let response = try await SupabaseClient.shared.requestAccess(
                 fileId: fileId,
                 email: email,
                 name: authService.currentUser?.fullName ?? email,
@@ -302,7 +302,7 @@ struct FileAccessView: View {
         guard let email = authService.currentUser?.email else { return }
         
         do {
-            let response = try await FileService.shared.decryptFile(
+            let response = try await SupabaseClient.shared.decryptFile(
                 fileId: fileId,
                 password: nil,
                 email: email
@@ -316,7 +316,7 @@ struct FileAccessView: View {
                 mimeType = response.mimeType
                 
                 // Log successful view
-                await FileService.shared.logAccess(fileId: fileId, action: "view", email: email)
+                await SupabaseClient.shared.logAccess(fileId: fileId, action: "view", email: email)
             } else if let err = response.error {
                 error = err
             }
@@ -335,7 +335,7 @@ struct FileAccessView: View {
         }
         
         do {
-            let response = try await FileService.shared.decryptFile(
+            let response = try await SupabaseClient.shared.decryptFile(
                 fileId: fileId,
                 password: password,
                 email: email
@@ -347,7 +347,7 @@ struct FileAccessView: View {
                 mimeType = response.mimeType
                 needsPassword = false
                 
-                await FileService.shared.logAccess(fileId: fileId, action: "view", email: email)
+                await SupabaseClient.shared.logAccess(fileId: fileId, action: "view", email: email)
             } else if let err = response.error {
                 error = err
             }

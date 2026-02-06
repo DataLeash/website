@@ -234,4 +234,147 @@ class AuthService: ObservableObject {
             }
         }.resume()
     }
+    // MARK: - Delete Account
+    
+    func deleteAccount() async throws {
+        await MainActor.run { 
+            isLoading = true
+            error = nil
+        }
+        
+        guard let token = accessToken, let url = URL(string: "\(Config.apiBaseURL)/api/auth/delete") else {
+            await MainActor.run { 
+                isLoading = false
+                error = "Invalid configuration or missing session"
+            }
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            await MainActor.run {
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    self.signOut()
+                } else {
+                    self.error = "Failed to delete account. Please try again."
+                    self.isLoading = false
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.error = error.localizedDescription
+                self.isLoading = false
+            }
+            throw error
+        }
+    }
+}
+
+// MARK: - Settings Service
+
+class SettingsService: ObservableObject {
+    static let shared = SettingsService()
+    private let client = SupabaseClient.shared
+    
+    @Published var settings: UserSettings?
+    @Published var isLoading = false
+    @Published var error: String?
+    
+    struct UserSettings: Codable {
+        var notifyOnView: Bool
+        var notifyOnAccess: Bool
+        var autoApproveRecipients: Bool
+        var requirePasswordDefault: Bool
+        var defaultExpiryDays: Int
+        
+        enum CodingKeys: String, CodingKey {
+            case notifyOnView = "notify_on_view"
+            case notifyOnAccess = "notify_on_access"
+            case autoApproveRecipients = "auto_approve_recipients"
+            case requirePasswordDefault = "require_password_default"
+            case defaultExpiryDays = "default_expiry_days"
+        }
+    }
+    
+    func fetchSettings() async throws {
+        guard let userId = AuthService.shared.currentUser?.id else { return }
+        
+        await MainActor.run { isLoading = true }
+        
+        // Use makeRequest from SupabaseClient which is private, so we need to access via shared client helper or just use the same logic if we can't access it.
+        // Actually SupabaseClient.makeRequest is private in the other file. 
+        // We are in AuthService now, so we can't access private members of SupabaseClient.
+        // But AuthService has accessToken. We can just construct the request here using what we know.
+        
+        guard let token = AuthService.shared.accessToken,
+              let url = URL(string: "\(Config.supabaseURL)/rest/v1/user_settings?user_id=eq.\(userId)&select=*") else {
+            await MainActor.run { isLoading = false }
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+                 throw URLError(.badServerResponse)
+            }
+            
+            let decodedResponse = try JSONDecoder().decode([UserSettings].self, from: data)
+            
+            await MainActor.run {
+                if let userSettings = decodedResponse.first {
+                    self.settings = userSettings
+                }
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.error = error.localizedDescription
+                self.isLoading = false
+            }
+            throw error
+        }
+    }
+    
+    func updateSettings(_ newSettings: UserSettings) async throws {
+        guard let userId = AuthService.shared.currentUser?.id else { return }
+        
+        // Optimistic update
+        await MainActor.run { self.settings = newSettings }
+        
+        guard let token = AuthService.shared.accessToken,
+              let url = URL(string: "\(Config.supabaseURL)/rest/v1/user_settings?user_id=eq.\(userId)") else {
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // Prefer return=minimal to just update
+        request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        
+        request.httpBody = try JSONEncoder().encode(newSettings)
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+                 throw URLError(.badServerResponse)
+            }
+        } catch {
+            await MainActor.run { self.error = error.localizedDescription }
+            throw error
+        }
+    }
 }
