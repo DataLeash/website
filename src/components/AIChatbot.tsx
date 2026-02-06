@@ -176,7 +176,7 @@ export function AIChatbot() {
                         {/* Avatar Image */}
                         <div className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-lg">
                             <Image
-                                src="/cerberus-avatar.png"
+                                src="/website/cerberus-avatar.png"
                                 alt="DataLeash Assistant"
                                 fill
                                 className="object-cover"

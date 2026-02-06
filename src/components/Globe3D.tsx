@@ -140,7 +140,7 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
         // 2. Cloud Shadows
         const shadowGeometry = new THREE.SphereGeometry(1.005, 64, 64)
         const shadowMaterial = new THREE.MeshBasicMaterial({
-            alphaMap: textureLoader.load('/textures/earth-clouds.jpg'),
+            alphaMap: textureLoader.load('/website/textures/earth-clouds.jpg'),
             color: 0x000000,
             transparent: true,
             opacity: 0.4,
@@ -153,8 +153,8 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
         // 3. Clouds
         const cloudGeometry = new THREE.SphereGeometry(1.015, 64, 64)
         const cloudMaterial = new THREE.MeshStandardMaterial({
-            map: textureLoader.load('/textures/earth-clouds.jpg'),
-            normalMap: textureLoader.load('/textures/earth-clouds.jpg'),
+            map: textureLoader.load('/website/textures/earth-clouds.jpg'),
+            normalMap: textureLoader.load('/website/textures/earth-clouds.jpg'),
             transparent: true,
             opacity: 0.8,
             blending: THREE.AdditiveBlending,
@@ -170,7 +170,7 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
         const nightGeometry = new THREE.SphereGeometry(1.002, 64, 64)
         const nightMaterial = new THREE.ShaderMaterial({
             uniforms: {
-                tNight: { value: textureLoader.load('/textures/earth-night.jpg') },
+                tNight: { value: textureLoader.load('/website/textures/earth-night.jpg') },
                 uLightDirection: { value: sunPosition.clone().normalize() }
             },
             vertexShader: `

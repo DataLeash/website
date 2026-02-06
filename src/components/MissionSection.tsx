@@ -15,7 +15,7 @@ export function MissionSection() {
                     playsInline
                     className="w-full h-full object-cover opacity-60 mix-blend-luminosity"
                 >
-                    <source src="/video2.mp4" type="video/mp4" />
+                    <source src="/website/video2.mp4" type="video/mp4" />
                 </video>
                 {/* Heavy Overlay for readability */}
                 <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]" />
@@ -78,7 +78,7 @@ export function MissionSection() {
                                     playsInline
                                     className="w-full h-full object-cover opacity-30"
                                 >
-                                    <source src="/questionvideo.mp4" type="video/mp4" />
+                                    <source src="/website/questionvideo.mp4" type="video/mp4" />
                                 </video>
                                 {/* Dark overlay for text readability */}
                                 <div className="absolute inset-0 bg-black/70" />
