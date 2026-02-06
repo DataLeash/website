@@ -100,17 +100,17 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
         composer.addPass(renderScene)
         composer.addPass(bloomPass)
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.2)
+        // Lighting - Adjusted for better visibility
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.5) // Increased from 0.2 to 1.5 to make "dark side" visible
         scene.add(ambientLight)
 
-        const sunPosition = new THREE.Vector3(5, 3, 5)
-        const sunLight = new THREE.DirectionalLight(0xfffaed, 1.2)
+        const sunPosition = new THREE.Vector3(2, 5, 8) // Moved to front-top
+        const sunLight = new THREE.DirectionalLight(0xffffff, 2.0)
         sunLight.position.copy(sunPosition)
         scene.add(sunLight)
 
-        const rimLight = new THREE.DirectionalLight(0x4455ff, 1.0)
-        rimLight.position.set(-5, 2, -5)
+        const rimLight = new THREE.DirectionalLight(0x4455ff, 1.5)
+        rimLight.position.set(-5, 0, 2) // Side rim light for depth
         scene.add(rimLight)
 
         // Texture loader
@@ -125,18 +125,18 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
             map: textureLoader.load(`${basePath}/textures/earth-day.jpg`),
             normalMap: textureLoader.load(`${basePath}/textures/earth-normal.jpg`),
             roughnessMap: textureLoader.load(`${basePath}/textures/earth-specular.jpg`),
-            roughness: 0.35, // Balanced wetness
+            roughness: 0.4, 
             metalness: 0.1,
-            normalScale: new THREE.Vector2(5.0, 5.0), // Extreme depth for 3D feel
-            sheen: 0.1,
+            normalScale: new THREE.Vector2(3.0, 3.0),
+            sheen: 0.2,
             sheenColor: new THREE.Color(0x00aaff),
-            specularIntensity: 0.4, // Glossy water
+            specularIntensity: 0.5, 
             specularColor: new THREE.Color(0xadc4ff),
-            clearcoat: 0.1, // Extra gloss layer
+            clearcoat: 0.2, 
             clearcoatRoughness: 0.1
         })
         const globe = new THREE.Mesh(earthGeometry, earthMaterial)
-        globe.rotation.y = -Math.PI / 2
+        globe.rotation.y = -Math.PI / 4 // Rotated to show more lit area initially
         globe.rotation.z = 23.5 * (Math.PI / 180)
         scene.add(globe)
 

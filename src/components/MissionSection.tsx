@@ -4,12 +4,16 @@ import { Shield, Globe, Users, Award } from 'lucide-react'
 import { DataLeashLogo } from './DataLeashLogo'
 import { useState, useEffect } from 'react'
 
+// Get basePath synchronously for initial render
+function getBasePath() {
+    if (typeof window === 'undefined') return ''
+    return window.location.pathname.startsWith('/website') ? '/website' : ''
+}
+
 function useBasePath() {
-    const [basePath, setBasePath] = useState('')
+    const [basePath, setBasePath] = useState(getBasePath)
     useEffect(() => {
-        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/website')) {
-            setBasePath('/website')
-        }
+        setBasePath(getBasePath())
     }, [])
     return basePath
 }
