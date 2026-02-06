@@ -265,19 +265,32 @@ export default function HomePage() {
 
             </div>
 
-            {/* Mobile: Hero Visual (shown only on mobile) */}
-            <div className="lg:hidden relative h-[250px] sm:h-[350px] w-full flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-transparent to-cyan-600/10 rounded-3xl" />
-              <div className="relative text-center">
-                <div className="w-32 h-32 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-pulse" />
-                  <div className="absolute inset-4 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center">
-                    <Shield className="w-12 h-12 text-white" />
-                  </div>
-                  <div className="absolute inset-0 border-2 border-blue-400/30 rounded-full animate-spin" style={{ animationDuration: '10s' }} />
-                </div>
-                <p className="text-sm text-slate-400 max-w-xs mx-auto">
-                  Enterprise-grade file protection with real-time monitoring
+            {/* Mobile: Hero Visual (Globe 3D) */}
+            <div className="lg:hidden relative h-[350px] w-full mt-8 overflow-hidden rounded-3xl border border-blue-500/20 bg-slate-950/50 backdrop-blur-sm">
+              {/* Controls */}
+              <div className="absolute top-4 right-4 z-30 flex gap-2">
+                <button
+                  onClick={() => setIsAttackMode(false)}
+                  className={`px-2 py-1 text-[10px] font-bold rounded border backdrop-blur-md transition-all ${!isAttackMode ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-black/40 border-slate-700 text-slate-500'}`}
+                >
+                  SECURE
+                </button>
+                <button
+                  onClick={() => setIsAttackMode(true)}
+                  className={`px-2 py-1 text-[10px] font-bold rounded border backdrop-blur-md transition-all ${isAttackMode ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-black/40 border-slate-700 text-slate-500'}`}
+                >
+                  THREATS
+                </button>
+              </div>
+              
+              <div className="relative w-full h-full grayscale-[0.3]">
+                <Globe3D locations={DUMMY_LOCATIONS} isAttackMode={isAttackMode} />
+              </div>
+              
+              {/* Overlay Label */}
+              <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none">
+                <p className="text-xs text-slate-500 bg-black/40 backdrop-blur-md inline-block px-3 py-1 rounded-full border border-blue-500/10">
+                  Interactive Live Threat Map
                 </p>
               </div>
             </div>
