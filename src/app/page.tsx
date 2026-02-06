@@ -546,13 +546,8 @@ export default function HomePage() {
                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-2xl blur-lg opacity-30 group-hover:opacity-60 transition-opacity" />
                 <div className="relative p-6 rounded-2xl bg-black/40 border border-blue-500/20 backdrop-blur-xl shadow-[0_0_30px_rgba(59,130,246,0.05),inset_0_1px_0_rgba(255,255,255,0.03)] h-full opacity-80 group-hover:opacity-100 transition-opacity">
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-20 h-20 mb-4 relative flex items-center justify-center">
-                      <div className="absolute inset-0 bg-blue-500/20 rounded-2xl blur-md group-hover:blur-lg transition-all" />
-                      <div className="relative z-10 w-16 h-16 rounded-xl border-2 border-slate-700/50 bg-slate-900/80 flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform duration-500 group-hover:border-blue-500/50">
-                        <div className="absolute top-2 w-4 h-1 bg-slate-800 rounded-full" />
-                        <Shield className="w-8 h-8 text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-                      </div>
-                      <div className="absolute -right-2 top-0 w-6 h-6 bg-blue-500/20 rounded-full blur-md animate-pulse" />
+                    <div className="w-20 h-20 mb-4 relative grayscale-[30%] group-hover:grayscale-0 transition-all">
+                      <img src="/ios-icon.png" alt="iOS" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]" />
                     </div>
                     <h3 className="text-lg font-bold text-white/80 mb-1">iOS App</h3>
                     <p className="text-sm text-slate-500 mb-3">iPhone & iPad</p>
@@ -569,13 +564,8 @@ export default function HomePage() {
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-2xl blur-lg opacity-30 group-hover:opacity-60 transition-opacity" />
                 <div className="relative p-6 rounded-2xl bg-black/40 border border-emerald-500/20 backdrop-blur-xl shadow-[0_0_30px_rgba(16,185,129,0.05),inset_0_1px_0_rgba(255,255,255,0.03)] h-full opacity-80 group-hover:opacity-100 transition-opacity">
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-20 h-20 mb-4 relative flex items-center justify-center">
-                      <div className="absolute inset-0 bg-emerald-500/20 rounded-2xl blur-md group-hover:blur-lg transition-all" />
-                      <div className="relative z-10 w-16 h-16 rounded-xl border-2 border-slate-700/50 bg-slate-900/80 flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform duration-500 group-hover:border-emerald-500/50">
-                        <div className="absolute top-2 w-4 h-1 bg-slate-800 rounded-full" />
-                        <Shield className="w-8 h-8 text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                      </div>
-                      <div className="absolute -left-2 bottom-0 w-8 h-8 bg-emerald-500/10 rounded-full blur-md animate-pulse" style={{ animationDelay: '1s' }} />
+                    <div className="w-20 h-20 mb-4 relative grayscale-[30%] group-hover:grayscale-0 transition-all">
+                      <img src="/android-icon.png" alt="Android" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
                     </div>
                     <h3 className="text-lg font-bold text-white/80 mb-1">Android App</h3>
                     <p className="text-sm text-slate-500 mb-3">Android 12+</p>
