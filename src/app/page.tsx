@@ -122,9 +122,8 @@ function FAQItem({ question, answer, isOpen, onClick }: {
 import { SecurityHUD } from "@/components/SecurityHUD";
 import { EncryptedText } from "@/components/EncryptedText";
 import { AIChatbot } from "@/components/AIChatbot";
-import { SecurityProtocols } from "@/components/SecurityProtocols";
-import { DemoRequestForm } from "@/components/DemoRequestForm";
 import { MissionSection } from "@/components/MissionSection";
+import { DemoRequestForm } from "@/components/DemoRequestForm";
 
 // ... (imports remain)
 
@@ -162,6 +161,8 @@ export default function HomePage() {
               <a href="#features" className="px-4 py-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all">Features</a>
               <a href="#how-it-works" className="px-4 py-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all">How It Works</a>
               <a href="#pricing" className="px-4 py-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all">Pricing</a>
+              <Link href="/faq" className="px-4 py-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all">FAQ</Link>
+              <a href="#founder" className="px-4 py-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all">Founder</a>
             </nav>
           </div>
           <div className="flex items-center gap-3">
@@ -191,6 +192,8 @@ export default function HomePage() {
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">Features</a>
               <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">How It Works</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">Pricing</a>
+              <Link href="/faq" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">FAQ</Link>
+              <a href="#founder" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">Founder</a>
             </nav>
           </div>
         )}
@@ -571,9 +574,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Security Protocols / FAQ */}
-        <SecurityProtocols />
-
         {/* Pricing / Demo Section */}
         <DemoRequestForm />
 
@@ -647,7 +647,7 @@ export default function HomePage() {
             </div>
 
             {/* Founder - Special Premium Section */}
-            <div className="relative">
+            <div id="founder" className="relative">
               <div className="absolute -inset-2 bg-blue-500/10 rounded-2xl blur-xl" />
               <div className="relative p-4 rounded-xl bg-black/60 border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,0.05)]">
                 <h4 className="text-sm font-semibold text-blue-400 mb-4 drop-shadow-[0_0_6px_rgba(59,130,246,0.5)]">✦ Founder</h4>

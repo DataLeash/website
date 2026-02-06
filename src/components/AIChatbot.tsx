@@ -94,24 +94,34 @@ export function AIChatbot() {
         setIsLoading(true)
 
         try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [...messages, userMessage].map(({ role, content }) => ({ role, content })) }),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}))
-                throw new Error(errorData.error || `Server error: ${response.status}`)
+            // Static fallback responses for GitHub Pages (no API routes)
+            const staticResponses: { [key: string]: string } = {
+                'contact': 'To reach the founder, I recommend connecting via LinkedIn at https://www.linkedin.com/in/hadi-sleiman-92781825b/ or email at dataleashowner@gmail.com',
+                'founder': 'DataLeash was architected by Hadi Sleiman. If you wish to make contact, I can direct you to his LinkedIn at https://www.linkedin.com/in/hadi-sleiman-92781825b/',
+                'what': 'DataLeash is a secure contract for your data. You upload, we encrypt with military-grade AES-256, and you maintain total leverage over your assets even after they leave your hands. That is true ownership.',
+                'how': 'You upload your file and we encrypt it. Then you share a secure link. Recipients must pass security verification to view. You can revoke access instantly at any time.',
+                'screenshot': 'We anticipate that move. Our scanners detect capture attempts and can liquidate the asset immediately. Your IP and email are logged on the watermark. Exposure is inevitable.',
+                'revoke': 'Absolutely. You maintain complete control. One click and the document becomes immediately inaccessible, even if someone is currently viewing it.',
+                'price': 'Visit our Pricing section or submit a demo request form on this page to learn about our enterprise solutions.',
+                'default': 'I deal in security and privacy protection. For detailed inquiries about DataLeash capabilities, please submit a demo request or contact the founder via LinkedIn.'
             }
 
-            const data = await response.json()
+            const lowerInput = input.toLowerCase()
+            let responseText = staticResponses.default
+            
+            for (const [key, value] of Object.entries(staticResponses)) {
+                if (lowerInput.includes(key)) {
+                    responseText = value
+                    break
+                }
+            }
+
             const newMessageIndex = messages.length + 1
             setEncryptingMessageId(newMessageIndex)
 
             const assistantMessage: Message = {
                 role: 'assistant',
-                content: data.choices[0].message.content,
+                content: responseText,
                 isNew: true
             }
             setMessages(prev => [...prev, assistantMessage])
