@@ -187,13 +187,13 @@ export default function HomePage() {
 
         {/* Mobile Menu Dropdown - Enhanced */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 z-[60] bg-black/95 backdrop-blur-xl border-b border-blue-500/20 shadow-[0_10px_30px_rgba(59,130,246,0.1)]">
-            <nav className="flex flex-col px-6 py-4 gap-1">
-              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">Features</a>
-              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">How It Works</a>
-              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">Pricing</a>
-              <Link href="/faq" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">FAQ</Link>
-              <a href="#founder" onClick={() => setMobileMenuOpen(false)} className="text-slate-300 hover:text-blue-400 hover:bg-blue-500/10 py-3 px-4 rounded-lg transition-all">Founder</a>
+          <div className="md:hidden fixed top-[60px] left-0 right-0 z-[100] bg-slate-950 border-b border-blue-500/30 shadow-2xl">
+            <nav className="flex flex-col px-6 py-4 gap-2">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all border-b border-slate-800">Features</a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all border-b border-slate-800">How It Works</a>
+              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all border-b border-slate-800">Pricing</a>
+              <Link href="/faq" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all border-b border-slate-800">FAQ</Link>
+              <a href="#founder" onClick={() => setMobileMenuOpen(false)} className="text-white text-lg font-medium hover:text-blue-400 hover:bg-blue-500/10 py-4 px-4 rounded-lg transition-all">Founder</a>
             </nav>
           </div>
         )}
