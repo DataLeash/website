@@ -119,61 +119,69 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
         // Base path for assets (works both locally and on GitHub Pages)
         const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/website') ? '/website' : ''
 
-        // 1. Earth Sphere (Max Realism)
-        const earthGeometry = new THREE.SphereGeometry(1, 64, 64)
-        const earthMaterial = new THREE.MeshPhysicalMaterial({
-            map: textureLoader.load(`${basePath}/textures/earth-day.jpg`),
-            normalMap: textureLoader.load(`${basePath}/textures/earth-normal.jpg`),
-            roughnessMap: textureLoader.load(`${basePath}/textures/earth-specular.jpg`),
-            roughness: 0.4, 
-            metalness: 0.1,
-            normalScale: new THREE.Vector2(3.0, 3.0),
-            sheen: 0.2,
-            sheenColor: new THREE.Color(0x00aaff),
-            specularIntensity: 0.5, 
-            specularColor: new THREE.Color(0xadc4ff),
-            clearcoat: 0.2, 
-            clearcoatRoughness: 0.1
+        // Load all textures
+        const dayTexture = textureLoader.load(`${basePath}/textures/earth-day.jpg`)
+        const normalTexture = textureLoader.load(`${basePath}/textures/earth-normal.jpg`)
+        const specularTexture = textureLoader.load(`${basePath}/textures/earth-specular.jpg`)
+        const cloudsTexture = textureLoader.load(`${basePath}/textures/earth-clouds.png`)
+        const nightTexture = textureLoader.load(`${basePath}/textures/earth-night.jpg`)
+
+        // 1. Earth Sphere - HYPER REALISTIC with high-detail geometry
+        const earthGeometry = new THREE.SphereGeometry(1, 128, 128) // Higher resolution for smoother surface
+        const earthMaterial = new THREE.MeshStandardMaterial({
+            map: dayTexture,
+            normalMap: normalTexture,
+            normalScale: new THREE.Vector2(2.0, 2.0), // Visible terrain depth
+            bumpMap: normalTexture, // Use normal as bump for extra depth
+            bumpScale: 0.08, // Subtle mountain elevation
+            roughnessMap: specularTexture,
+            roughness: 0.6, // More matte land
+            metalness: 0.05, // Very slight metallic for ocean sheen
+            envMapIntensity: 0.5,
         })
         const globe = new THREE.Mesh(earthGeometry, earthMaterial)
-        globe.rotation.y = -Math.PI / 4 // Rotated to show more lit area initially
-        globe.rotation.z = 23.5 * (Math.PI / 180)
+        globe.rotation.y = -Math.PI / 4 // Show lit area
+        globe.rotation.z = 23.5 * (Math.PI / 180) // Earth's axial tilt
+        globe.castShadow = true
+        globe.receiveShadow = true
         scene.add(globe)
 
-        // 2. Cloud Shadows
-        const shadowGeometry = new THREE.SphereGeometry(1.005, 64, 64)
-        const shadowMaterial = new THREE.MeshBasicMaterial({
-            alphaMap: textureLoader.load(`${basePath}/textures/earth-clouds.jpg`),
-            color: 0x000000,
-            transparent: true,
-            opacity: 0.4,
-            depthWrite: false,
-        })
-        const cloudShadows = new THREE.Mesh(shadowGeometry, shadowMaterial)
-        cloudShadows.userData = { isShadows: true }
-        globe.add(cloudShadows)
-
-        // 3. Clouds
-        const cloudGeometry = new THREE.SphereGeometry(1.015, 64, 64)
+        // 2. Volumetric Clouds Layer - 3D effect with depth
+        const cloudGeometry = new THREE.SphereGeometry(1.012, 96, 96)
         const cloudMaterial = new THREE.MeshStandardMaterial({
-            map: textureLoader.load(`${basePath}/textures/earth-clouds.jpg`),
-            normalMap: textureLoader.load(`${basePath}/textures/earth-clouds.jpg`),
+            map: cloudsTexture,
+            alphaMap: cloudsTexture,
             transparent: true,
-            opacity: 0.8,
-            blending: THREE.AdditiveBlending,
-            side: THREE.DoubleSide,
+            opacity: 0.9,
             depthWrite: false,
-            normalScale: new THREE.Vector2(0.4, 0.4)
+            side: THREE.DoubleSide,
+            roughness: 1.0,
+            metalness: 0.0,
         })
         const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial)
         clouds.userData = { isClouds: true }
         globe.add(clouds)
+        
+        // 3. Second cloud layer for depth effect (slightly higher, more transparent)
+        const cloudGeometry2 = new THREE.SphereGeometry(1.018, 64, 64)
+        const cloudMaterial2 = new THREE.MeshBasicMaterial({
+            map: cloudsTexture,
+            alphaMap: cloudsTexture,
+            transparent: true,
+            opacity: 0.3,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+        })
+        const clouds2 = new THREE.Mesh(cloudGeometry2, cloudMaterial2)
+        clouds2.userData = { isClouds2: true }
+        clouds2.rotation.y = 0.5 // Offset for parallax effect
+        globe.add(clouds2)
 
-        // 4. Night Lights
+        // 4. Night Lights (City lights visible on dark side)
         const nightGeometry = new THREE.SphereGeometry(1.002, 64, 64)
         const nightMaterial = new THREE.ShaderMaterial({
             uniforms: {
-                tNight: { value: textureLoader.load(`${basePath}/textures/earth-night.jpg`) },
+                tNight: { value: nightTexture },
                 uLightDirection: { value: sunPosition.clone().normalize() }
             },
             vertexShader: `
@@ -376,12 +384,15 @@ export function Globe3D({ locations, onLocationClick, isAttackMode = false }: Gl
             arcs.rotation.copy(globe.rotation)
 
 
-            // Cloud/Shadow Parallax
+
+            // Cloud Rotation Animation - both layers at different speeds for depth
             const cloudMesh = globe.children.find(c => c.userData.isClouds)
-            const shadowMesh = globe.children.find(c => c.userData.isShadows)
+            const cloudMesh2 = globe.children.find(c => c.userData.isClouds2)
             if (cloudMesh) {
-                cloudMesh.rotation.y += 0.0002
-                if (shadowMesh) shadowMesh.rotation.y = cloudMesh.rotation.y
+                cloudMesh.rotation.y += 0.0003 // Primary cloud layer
+            }
+            if (cloudMesh2) {
+                cloudMesh2.rotation.y += 0.0001 // Secondary layer slower for parallax
             }
 
             // Arcs Update
