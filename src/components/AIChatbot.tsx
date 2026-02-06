@@ -72,7 +72,7 @@ export function AIChatbot() {
 
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>([
-        { role: 'assistant', content: 'Hello! I\'m here to help you learn about DataLeash and our security solutions. What would you like to know?', isNew: false }
+        { role: 'assistant', content: 'Hello! I\'m Nova, your personal security guardian. I monitor DataLeash systems 24/7. How can I assist you today?', isNew: false }
     ])
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -227,10 +227,10 @@ export function AIChatbot() {
                 <div className="relative p-4 border-b border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 z-10">
                     <div className="flex items-center gap-3 relative z-10">
                         {/* Avatar Image */}
-                        <div className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-lg">
+                        <div className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-lg bg-slate-950">
                             <Image
-                                src="/cerberus-avatar.png"
-                                alt="DataLeash Assistant"
+                                src="/nova-avatar.png"
+                                alt="Nova - Security Guardian"
                                 fill
                                 className="object-cover"
                             />
@@ -238,7 +238,7 @@ export function AIChatbot() {
 
                         <div>
                             <h3 className="font-semibold text-white text-base">
-                                DataLeash Assistant
+                                Nova
                             </h3>
                             <div className="flex items-center gap-2">
                                 <span className="relative flex h-2 w-2">
