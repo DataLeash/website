@@ -4,16 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, X, Lock, MessageCircle } from 'lucide-react'
 import Image from 'next/image'
 
-// Hook for dynamic base path (works locally and on GitHub Pages)
-function useBasePath() {
-    const [basePath, setBasePath] = useState('')
-    useEffect(() => {
-        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/website')) {
-            setBasePath('/website')
-        }
-    }, [])
-    return basePath
-}
+
 
 interface Message {
     role: 'user' | 'assistant'
@@ -78,7 +69,7 @@ function ShinyText({ children, className = '' }: { children: React.ReactNode, cl
 }
 
 export function AIChatbot() {
-    const basePath = useBasePath()
+
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>([
         { role: 'assistant', content: 'Hello! I\'m here to help you learn about DataLeash and our security solutions. What would you like to know?', isNew: false }
@@ -106,26 +97,73 @@ export function AIChatbot() {
         setIsLoading(true)
 
         try {
-            // Static fallback responses for GitHub Pages (no API routes)
-            const staticResponses: { [key: string]: string } = {
-                'contact': 'To reach the founder, I recommend connecting via LinkedIn at https://www.linkedin.com/in/hadi-sleiman-92781825b/ or email at dataleashowner@gmail.com',
-                'founder': 'DataLeash was architected by Hadi Sleiman. If you wish to make contact, I can direct you to his LinkedIn at https://www.linkedin.com/in/hadi-sleiman-92781825b/',
-                'what': 'DataLeash is a secure contract for your data. You upload, we encrypt with military-grade AES-256, and you maintain total leverage over your assets even after they leave your hands. That is true ownership.',
-                'how': 'You upload your file and we encrypt it. Then you share a secure link. Recipients must pass security verification to view. You can revoke access instantly at any time.',
-                'screenshot': 'We anticipate that move. Our scanners detect capture attempts and can liquidate the asset immediately. Your IP and email are logged on the watermark. Exposure is inevitable.',
-                'revoke': 'Absolutely. You maintain complete control. One click and the document becomes immediately inaccessible, even if someone is currently viewing it.',
-                'price': 'Visit our Pricing section or submit a demo request form on this page to learn about our enterprise solutions.',
-                'default': 'I deal in security and privacy protection. For detailed inquiries about DataLeash capabilities, please submit a demo request or contact the founder via LinkedIn.'
-            }
-
+            // Comprehensive DataLeash knowledge base
             const lowerInput = input.toLowerCase()
-            let responseText = staticResponses.default
-            
-            for (const [key, value] of Object.entries(staticResponses)) {
-                if (lowerInput.includes(key)) {
-                    responseText = value
-                    break
-                }
+            let responseText = ''
+
+            // Founder - only when explicitly asked
+            if (lowerInput.includes('founder') || lowerInput.includes('who created') || lowerInput.includes('who made') || lowerInput.includes('who built')) {
+                responseText = 'DataLeash was founded by Hadi Sleiman. You can connect via LinkedIn at linkedin.com/in/hadi-sleiman-92781825b or email dataleashowner@gmail.com'
+            }
+            // Contact
+            else if (lowerInput.includes('contact') || lowerInput.includes('email') || lowerInput.includes('reach')) {
+                responseText = 'You can reach us at dataleashowner@gmail.com or submit a demo request through the form on this page.'
+            }
+            // What is DataLeash
+            else if (lowerInput.includes('what is') || lowerInput.includes('what does') || lowerInput.includes('explain') || lowerInput.includes('tell me about')) {
+                responseText = 'DataLeash is a defense-grade data protection platform. You maintain complete ownership and control of your files even after sharing them. Upload, share securely, monitor access in real-time, and revoke permissions instantly—anytime, anywhere.'
+            }
+            // How it works
+            else if (lowerInput.includes('how') && (lowerInput.includes('work') || lowerInput.includes('use'))) {
+                responseText = 'It works in 3 simple steps: 1) Upload your sensitive files—we apply automatic protection. 2) Control who can access them with explicit approval required. 3) Monitor all activity in real-time and revoke access instantly when needed.'
+            }
+            // Screenshot protection
+            else if (lowerInput.includes('screenshot') || lowerInput.includes('screen capture') || lowerInput.includes('copy')) {
+                responseText = 'DataLeash includes advanced screenshot and screen capture prevention. Our system detects capture attempts and can immediately restrict access. All viewing sessions are watermarked and logged for complete traceability.'
+            }
+            // Revoke access
+            else if (lowerInput.includes('revoke') || lowerInput.includes('remove access') || lowerInput.includes('stop access')) {
+                responseText = 'Yes, you have complete control. With one click, you can instantly revoke access to any document—even if someone is currently viewing it. The file becomes immediately inaccessible worldwide.'
+            }
+            // Pricing
+            else if (lowerInput.includes('price') || lowerInput.includes('cost') || lowerInput.includes('pricing') || lowerInput.includes('pay')) {
+                responseText = 'We offer flexible enterprise pricing tailored to your organization\'s needs. Please submit a demo request through the form on this page and our team will provide detailed pricing information.'
+            }
+            // Security / Encryption
+            else if (lowerInput.includes('security') || lowerInput.includes('encrypt') || lowerInput.includes('safe') || lowerInput.includes('secure')) {
+                responseText = 'DataLeash uses military-grade encryption and a zero-storage architecture. Your files are never stored on recipient devices—they\'re viewed securely without leaving any data residue. All access is monitored and logged.'
+            }
+            // Platforms
+            else if (lowerInput.includes('platform') || lowerInput.includes('windows') || lowerInput.includes('mac') || lowerInput.includes('linux') || lowerInput.includes('device')) {
+                responseText = 'DataLeash is currently available for macOS (Intel) and Windows 10/11. Support for Apple Silicon (M1/M2/M3) and Linux is coming soon.'
+            }
+            // Audit / Logging
+            else if (lowerInput.includes('audit') || lowerInput.includes('log') || lowerInput.includes('track') || lowerInput.includes('monitor')) {
+                responseText = 'DataLeash provides a complete audit trail. You can see exactly who accessed your files, when they accessed them, from where, and for how long. This helps meet compliance requirements and ensures full accountability.'
+            }
+            // Demo
+            else if (lowerInput.includes('demo') || lowerInput.includes('trial') || lowerInput.includes('try')) {
+                responseText = 'To schedule a demo, please fill out the demo request form on this page. Our team will reach out to arrange a personalized demonstration of DataLeash capabilities.'
+            }
+            // Government / Enterprise
+            else if (lowerInput.includes('government') || lowerInput.includes('enterprise') || lowerInput.includes('military') || lowerInput.includes('defense')) {
+                responseText = 'DataLeash is built for organizations where data protection is non-negotiable—defense, government, critical infrastructure, and enterprise. We provide the control and visibility that sensitive operations require.'
+            }
+            // Features
+            else if (lowerInput.includes('feature') || lowerInput.includes('capability') || lowerInput.includes('can it')) {
+                responseText = 'Key features include: instant access revocation, screenshot prevention, real-time monitoring, complete audit trails, no local file storage, and defense-grade encryption. You maintain absolute control over your data.'
+            }
+            // Greeting
+            else if (lowerInput.includes('hello') || lowerInput.includes('hi') || lowerInput.includes('hey')) {
+                responseText = 'Hello! Welcome to DataLeash. How can I help you today? Feel free to ask about our security features, how it works, or pricing.'
+            }
+            // Thanks
+            else if (lowerInput.includes('thank')) {
+                responseText = 'You\'re welcome! If you have any other questions about DataLeash, feel free to ask.'
+            }
+            // Default
+            else {
+                responseText = 'DataLeash gives you complete control over your shared files—upload, share securely, monitor access, and revoke instantly. Is there something specific you\'d like to know about our security features or how it works?'
             }
 
             const newMessageIndex = messages.length + 1
@@ -188,7 +226,7 @@ export function AIChatbot() {
                         {/* Avatar Image */}
                         <div className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-lg">
                             <Image
-                                src={`${basePath}/cerberus-avatar.png`}
+                                src="/cerberus-avatar.png"
                                 alt="DataLeash Assistant"
                                 fill
                                 className="object-cover"
