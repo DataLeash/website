@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DataLeash - Control Your Data</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter", sans-serif;
+        background: #0a1628;
+        color: white;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .video-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(
+          135deg,
+          #0a1628 0%,
+          #0f2847 50%,
+          #0a1628 100%
+        );
+      }
+
+      /* Animated background grid */
+      .bg-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+        background-size: 50px 50px;
+        animation: gridMove 20s linear infinite;
+      }
+
+      @keyframes gridMove {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(50px, 50px);
+        }
+      }
+
+      /* Floating particles */
+      .particles {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+      }
+
+      .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: rgba(59, 130, 246, 0.6);
+        border-radius: 50%;
+        animation: float 15s infinite;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(100vh) scale(0);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-100vh) scale(1);
+          opacity: 0;
+        }
+      }
+
+      /* Scene container */
+      .scene {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 80px;
+        opacity: 0;
+        transform: scale(0.95);
+        transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+      }
+
+      .scene.active {
+        opacity: 1;
+        transform: scale(1);
+        pointer-events: auto;
+      }
+
+      .scene.exiting {
+        opacity: 0;
+        transform: scale(1.05);
+      }
+
+      /* Typography */
+      .headline {
+        font-size: 4rem;
+        font-weight: 800;
+        text-align: center;
+        line-height: 1.1;
+        margin-bottom: 30px;
+        background: linear-gradient(
+          135deg,
+          #ffffff 0%,
+          #60a5fa 50%,
+          #3b82f6 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        opacity: 0;
+        transform: translateY(40px);
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 0.5s;
+      }
+
+      .subheadline {
+        font-size: 1.8rem;
+        font-weight: 300;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.7);
+        max-width: 900px;
+        line-height: 1.6;
+        opacity: 0;
+        transform: translateY(30px);
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 0.8s;
+      }
+
+      .narration {
+        font-size: 1.5rem;
+        font-weight: 400;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.9);
+        max-width: 1000px;
+        line-height: 1.8;
+        opacity: 0;
+        transform: translateY(30px);
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 1s;
+      }
+
+      @keyframes fadeInUp {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Visual elements */
+      .visual-container {
+        position: relative;
+        width: 500px;
+        height: 500px;
+        margin: 40px 0;
+        opacity: 0;
+        animation: fadeIn 1.5s ease forwards;
+        animation-delay: 0.3s;
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
+      }
+
+      .visual-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 20px;
+      }
+
+      /* Glowing orb */
+      .glow-orb {
+        position: absolute;
+        width: 400px;
+        height: 400px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(59, 130, 246, 0.3) 0%,
+          transparent 70%
+        );
+        animation: pulse 4s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.5;
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 0.8;
+        }
+      }
+
+      /* Logo */
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 40px;
+        opacity: 0;
+        animation: fadeIn 1s ease forwards;
+      }
+
+      .logo-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #3b82f6, #06b6d4);
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .logo-text {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #ffffff, #60a5fa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      /* Stats */
+      .stats-container {
+        display: flex;
+        gap: 60px;
+        margin-top: 50px;
+        opacity: 0;
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 1.2s;
+      }
+
+      .stat {
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 3.5rem;
+        font-weight: 800;
+        color: #3b82f6;
+      }
+
+      .stat-label {
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.6);
+        margin-top: 5px;
+      }
+
+      /* Feature list */
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 30px;
+        max-width: 1200px;
+        margin-top: 40px;
+        opacity: 0;
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 1s;
+      }
+
+      .feature {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+      }
+
+      .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+      }
+
+      .feature-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+
+      .feature-desc {
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      /* Red alert styling for danger scenes */
+      .scene.danger {
+        background: radial-gradient(
+          circle at center,
+          rgba(220, 38, 38, 0.1) 0%,
+          transparent 70%
+        );
+      }
+
+      .scene.danger .headline {
+        background: linear-gradient(
+          135deg,
+          #fca5a5 0%,
+          #ef4444 50%,
+          #dc2626 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+      }
+
+      /* Progress bar */
+      .progress-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #3b82f6, #06b6d4);
+        transition: width 0.5s ease;
+      }
+
+      /* Scene indicator */
+      .scene-indicator {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      /* Tagline animation */
+      .tagline {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #60a5fa;
+        margin-top: 30px;
+        opacity: 0;
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 1.5s;
+      }
+
+      /* CTA */
+      .cta {
+        display: inline-block;
+        margin-top: 40px;
+        padding: 20px 50px;
+        background: linear-gradient(135deg, #3b82f6, #06b6d4);
+        border-radius: 50px;
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: white;
+        text-decoration: none;
+        opacity: 0;
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 1.8s;
+        box-shadow: 0 10px 40px rgba(59, 130, 246, 0.4);
+      }
+
+      /* Shield animation */
+      .shield-container {
+        position: relative;
+        width: 300px;
+        height: 300px;
+        margin: 40px 0;
+      }
+
+      .shield {
+        width: 100%;
+        height: 100%;
+        animation: shieldPulse 3s ease-in-out infinite;
+      }
+
+      @keyframes shieldPulse {
+        0%,
+        100% {
+          filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.5));
+        }
+        50% {
+          filter: drop-shadow(0 0 60px rgba(59, 130, 246, 0.8));
+        }
+      }
+
+      /* Use case cards */
+      .use-cases {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 25px;
+        max-width: 1300px;
+        margin-top: 50px;
+        opacity: 0;
+        animation: fadeInUp 1s ease forwards;
+        animation-delay: 1s;
+      }
+
+      .use-case {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(59, 130, 246, 0.15);
+        border-radius: 15px;
+        padding: 25px;
+        text-align: center;
+      }
+
+      .use-case-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+      }
+
+      .use-case-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .use-case-desc {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      /* Controls */
+      .controls {
+        position: fixed;
+        top: 30px;
+        right: 30px;
+        display: flex;
+        gap: 10px;
+        z-index: 100;
+      }
+
+      .control-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+      }
+
+      .control-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="video-container">
+      <div class="bg-grid"></div>
+      <div class="particles" id="particles"></div>
+
+      <!-- Scene 0: Intro/Logo -->
+      <div class="scene active" id="scene-0">
+        <div class="glow-orb"></div>
+        <div class="logo">
+          <div class="logo-icon">
+            <svg
+              width="35"
+              height="35"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              stroke-width="2"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <span class="logo-text">DataLeash</span>
+        </div>
+        <h1 class="headline">
+          Control Your Data.<br />Even After It's Shared.
+        </h1>
+        <p class="subheadline">
+          The world's first post-share data control system
+        </p>
+      </div>
+
+      <!-- Scene 1: The Problem - Stats -->
+      <div class="scene danger" id="scene-1">
+        <h1 class="headline">The Data Problem</h1>
+        <p class="narration">
+          Every 39 seconds, a cyberattack occurs.<br />Every day, 2.5
+          quintillion bytes of data are created.
+        </p>
+        <div class="stats-container">
+          <div class="stat">
+            <div class="stat-value">$4.88M</div>
+            <div class="stat-label">Average cost of a data breach</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">39s</div>
+            <div class="stat-label">Time between cyberattacks</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">2.5Q</div>
+            <div class="stat-label">Bytes created daily</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 2: The Fundamental Flaw -->
+      <div class="scene danger" id="scene-2">
+        <h1 class="headline">The Fundamental Flaw</h1>
+        <p class="narration">
+          Traditional security protects data in transit. Encryption secures it
+          at rest.<br /><br />But what happens <strong>after</strong> the
+          recipient opens your file?
+        </p>
+        <p class="tagline" style="color: #ef4444">
+          Once decrypted, your data is completely vulnerable.
+        </p>
+      </div>
+
+      <!-- Scene 3: Introducing DataLeash -->
+      <div class="scene" id="scene-3">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg
+              width="35"
+              height="35"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              stroke-width="2"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <span class="logo-text">DataLeash</span>
+        </div>
+        <h1 class="headline">The Solution</h1>
+        <p class="narration">
+          DataLeash doesn't just protect your data when you send it.<br /><strong
+            >It protects your data forever.</strong
+          ><br /><br />Wherever it goes. Whoever has it. You remain in control.
+        </p>
+      </div>
+
+      <!-- Scene 4: How It Works -->
+      <div class="scene" id="scene-4">
+        <h1 class="headline">How It Works</h1>
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon">📤</div>
+            <div class="feature-title">1. Share Securely</div>
+            <div class="feature-desc">
+              Your document is wrapped in our proprietary protection layer
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">👁️</div>
+            <div class="feature-title">2. View Normally</div>
+            <div class="feature-desc">
+              Recipients access files normally, but cannot copy or forward
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🎛️</div>
+            <div class="feature-title">3. Stay in Control</div>
+            <div class="feature-desc">
+              Revoke access instantly - even after months or years
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 5: Core Features -->
+      <div class="scene" id="scene-5">
+        <h1 class="headline">Powerful Protection</h1>
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon">🚫</div>
+            <div class="feature-title">Screenshot Blocking</div>
+            <div class="feature-desc">
+              Kernel-level prevention of screen captures
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📋</div>
+            <div class="feature-title">Clipboard Prevention</div>
+            <div class="feature-desc">
+              Copy-paste blocked at the system level
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🌍</div>
+            <div class="feature-title">Geo-Fencing</div>
+            <div class="feature-desc">
+              Restrict access by geographic location
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">⏰</div>
+            <div class="feature-title">Time-Based Access</div>
+            <div class="feature-desc">Automatic document expiration</div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📊</div>
+            <div class="feature-title">Real-Time Monitoring</div>
+            <div class="feature-desc">
+              See who accessed what, when, and where
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🔒</div>
+            <div class="feature-title">Zero-Knowledge</div>
+            <div class="feature-desc">Even we can't see your data</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 6: Use Cases -->
+      <div class="scene" id="scene-6">
+        <h1 class="headline">Built For Every Industry</h1>
+        <div class="use-cases">
+          <div class="use-case">
+            <div class="use-case-icon">🏢</div>
+            <div class="use-case-title">Enterprise</div>
+            <div class="use-case-desc">
+              Board materials, M&A documents, trade secrets
+            </div>
+          </div>
+          <div class="use-case">
+            <div class="use-case-icon">🏥</div>
+            <div class="use-case-title">Healthcare</div>
+            <div class="use-case-desc">HIPAA-compliant patient records</div>
+          </div>
+          <div class="use-case">
+            <div class="use-case-icon">🏛️</div>
+            <div class="use-case-title">Government</div>
+            <div class="use-case-desc">Classified information control</div>
+          </div>
+          <div class="use-case">
+            <div class="use-case-icon">⚖️</div>
+            <div class="use-case-title">Legal</div>
+            <div class="use-case-desc">
+              Attorney-client privilege protection
+            </div>
+          </div>
+          <div class="use-case">
+            <div class="use-case-icon">🎨</div>
+            <div class="use-case-title">Creative</div>
+            <div class="use-case-desc">IP and portfolio protection</div>
+          </div>
+          <div class="use-case">
+            <div class="use-case-icon">🎬</div>
+            <div class="use-case-title">Media</div>
+            <div class="use-case-desc">Pre-release content security</div>
+          </div>
+          <div class="use-case">
+            <div class="use-case-icon">🏦</div>
+            <div class="use-case-title">Finance</div>
+            <div class="use-case-desc">Sensitive financial documents</div>
+          </div>
+          <div class="use-case">
+            <div class="use-case-icon">🔬</div>
+            <div class="use-case-title">Research</div>
+            <div class="use-case-desc">Proprietary research data</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 7: Vision -->
+      <div class="scene" id="scene-7">
+        <h1 class="headline">A New Paradigm</h1>
+        <p class="narration">
+          We believe in a world where sharing doesn't mean surrendering.<br />Where
+          collaboration doesn't compromise security.<br /><br />Where you can
+          trust without taking a leap of faith.
+        </p>
+        <p class="tagline">
+          DataLeash isn't just a product. It's the future of data ownership.
+        </p>
+      </div>
+
+      <!-- Scene 8: CTA -->
+      <div class="scene" id="scene-8">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg
+              width="35"
+              height="35"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              stroke-width="2"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <span class="logo-text">DataLeash</span>
+        </div>
+        <h1 class="headline">Take Back Control</h1>
+        <p class="subheadline">Control your data. Even after it's shared.</p>
+        <a href="#" class="cta">Request a Demo →</a>
+        <p class="tagline">dataleash.qa</p>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-bar" id="progress"></div>
+
+      <!-- Scene indicator -->
+      <div class="scene-indicator" id="scene-indicator">Scene 1 / 9</div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="control-btn" onclick="togglePause()">⏸️ Pause</button>
+        <button class="control-btn" onclick="prevScene()">◀ Prev</button>
+        <button class="control-btn" onclick="nextScene()">Next ▶</button>
+        <button class="control-btn" onclick="restart()">🔄 Restart</button>
+      </div>
+    </div>
+
+    <script>
+      // Create floating particles
+      const particlesContainer = document.getElementById("particles");
+      for (let i = 0; i < 50; i++) {
+        const particle = document.createElement("div");
+        particle.className = "particle";
+        particle.style.left = Math.random() * 100 + "%";
+        particle.style.animationDelay = Math.random() * 15 + "s";
+        particle.style.animationDuration = 10 + Math.random() * 10 + "s";
+        particlesContainer.appendChild(particle);
+      }
+
+      // Scene management
+      const scenes = document.querySelectorAll(".scene");
+      const totalScenes = scenes.length;
+      let currentScene = 0;
+      let isPaused = false;
+      let sceneTimer = null;
+
+      // Scene durations in milliseconds
+      const sceneDurations = [
+        8000, // Scene 0: Intro - 8s
+        12000, // Scene 1: Stats - 12s
+        10000, // Scene 2: Flaw - 10s
+        10000, // Scene 3: Introducing - 10s
+        12000, // Scene 4: How it works - 12s
+        15000, // Scene 5: Features - 15s
+        12000, // Scene 6: Use cases - 12s
+        10000, // Scene 7: Vision - 10s
+        15000, // Scene 8: CTA - 15s (end)
+      ];
+
+      function showScene(index) {
+        scenes.forEach((scene, i) => {
+          scene.classList.remove("active", "exiting");
+          if (i === currentScene && i !== index) {
+            scene.classList.add("exiting");
+          }
+        });
+
+        setTimeout(() => {
+          currentScene = index;
+          scenes[currentScene].classList.add("active");
+          updateProgress();
+          updateIndicator();
+        }, 100);
+      }
+
+      function nextScene() {
+        if (currentScene < totalScenes - 1) {
+          showScene(currentScene + 1);
+          scheduleNextScene();
+        }
+      }
+
+      function prevScene() {
+        if (currentScene > 0) {
+          showScene(currentScene - 1);
+          scheduleNextScene();
+        }
+      }
+
+      function scheduleNextScene() {
+        clearTimeout(sceneTimer);
+        if (!isPaused && currentScene < totalScenes - 1) {
+          sceneTimer = setTimeout(nextScene, sceneDurations[currentScene]);
+        }
+      }
+
+      function togglePause() {
+        isPaused = !isPaused;
+        document.querySelector(".control-btn").textContent = isPaused
+          ? "▶️ Play"
+          : "⏸️ Pause";
+        if (!isPaused) {
+          scheduleNextScene();
+        } else {
+          clearTimeout(sceneTimer);
+        }
+      }
+
+      function restart() {
+        showScene(0);
+        isPaused = false;
+        document.querySelector(".control-btn").textContent = "⏸️ Pause";
+        scheduleNextScene();
+      }
+
+      function updateProgress() {
+        const progress = ((currentScene + 1) / totalScenes) * 100;
+        document.getElementById("progress").style.width = progress + "%";
+      }
+
+      function updateIndicator() {
+        document.getElementById("scene-indicator").textContent =
+          `Scene ${currentScene + 1} / ${totalScenes}`;
+      }
+
+      // Start the presentation
+      updateProgress();
+      updateIndicator();
+      scheduleNextScene();
+
+      // Keyboard controls
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight") nextScene();
+        if (e.key === "ArrowLeft") prevScene();
+        if (e.key === " ") togglePause();
+        if (e.key === "r") restart();
+      });
+    </script>
+  </body>
+</html>

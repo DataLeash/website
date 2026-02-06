@@ -125,23 +125,14 @@ import { AIChatbot } from "@/components/AIChatbot";
 import { MissionSection } from "@/components/MissionSection";
 import { DemoRequestForm } from "@/components/DemoRequestForm";
 
-// Hook for dynamic base path (works locally and on GitHub Pages)
-function useBasePath() {
-  const [basePath, setBasePath] = useState('')
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/website')) {
-      setBasePath('/website')
-    }
-  }, [])
-  return basePath
-}
+
 
 export default function HomePage() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(0);
   const [isAttackMode, setIsAttackMode] = useState(false);
   const [discordCopied, setDiscordCopied] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const basePath = useBasePath();
+
 
   const handleCopyDiscord = () => {
     navigator.clipboard.writeText('ashenone616');
@@ -462,7 +453,7 @@ export default function HomePage() {
                 <div className="relative p-6 rounded-2xl bg-black/60 border border-slate-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(100,116,139,0.1),inset_0_1px_0_rgba(255,255,255,0.05)] h-full">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-20 h-20 mb-4 relative">
-                      <img src={`${basePath}/macos-icon.png`} alt="macOS" className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(148,163,184,0.4)]" />
+                      <img src="/macos-icon.png" alt="macOS" className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(148,163,184,0.4)]" />
                     </div>
                     <h3 className="text-lg font-bold text-white mb-1">macOS</h3>
                     <p className="text-sm text-slate-400 mb-3">Intel (x86_64)</p>
@@ -480,7 +471,7 @@ export default function HomePage() {
                 <div className="relative p-6 rounded-2xl bg-black/60 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.1),inset_0_1px_0_rgba(255,255,255,0.05)] h-full">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-20 h-20 mb-4 relative">
-                      <img src={`${basePath}/windows-icon.png`} alt="Windows" className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]" />
+                      <img src="/windows-icon.png" alt="Windows" className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]" />
                     </div>
                     <h3 className="text-lg font-bold text-white mb-1">Windows</h3>
                     <p className="text-sm text-slate-400 mb-3">10 & 11 (64-bit)</p>
@@ -498,7 +489,7 @@ export default function HomePage() {
                 <div className="relative p-6 rounded-2xl bg-black/40 border border-orange-500/20 backdrop-blur-xl shadow-[0_0_30px_rgba(249,115,22,0.05),inset_0_1px_0_rgba(255,255,255,0.03)] h-full opacity-80 group-hover:opacity-100 transition-opacity">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-20 h-20 mb-4 relative grayscale-[30%] group-hover:grayscale-0 transition-all">
-                      <img src={`${basePath}/linux-icon.png`} alt="Linux" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(249,115,22,0.3)]" />
+                      <img src="/linux-icon.png" alt="Linux" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(249,115,22,0.3)]" />
                     </div>
                     <h3 className="text-lg font-bold text-white/80 mb-1">Linux</h3>
                     <p className="text-sm text-slate-500 mb-3">Ubuntu, Debian, Fedora</p>
@@ -516,7 +507,7 @@ export default function HomePage() {
                 <div className="relative p-6 rounded-2xl bg-black/40 border border-purple-500/20 backdrop-blur-xl shadow-[0_0_30px_rgba(168,85,247,0.05),inset_0_1px_0_rgba(255,255,255,0.03)] h-full opacity-80 group-hover:opacity-100 transition-opacity">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-20 h-20 mb-4 relative grayscale-[30%] group-hover:grayscale-0 transition-all">
-                      <img src={`${basePath}/macos-icon.png`} alt="macOS Apple Silicon" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(168,85,247,0.3)]" />
+                      <img src="/macos-icon.png" alt="macOS Apple Silicon" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(168,85,247,0.3)]" />
                     </div>
                     <h3 className="text-lg font-bold text-white/80 mb-1">macOS</h3>
                     <p className="text-sm text-slate-500 mb-3">Apple Silicon (M1/M2/M3)</p>
@@ -663,7 +654,7 @@ export default function HomePage() {
                 <h4 className="text-sm font-semibold text-blue-400 mb-4 drop-shadow-[0_0_6px_rgba(59,130,246,0.5)]">✦ Founder</h4>
                 <div className="flex items-center gap-3 mb-3">
                   <img 
-                    src={`${basePath}/founder-avatar.png`} 
+                    src="/founder-avatar.png" 
                     alt="Founder" 
                     className="w-12 h-12 rounded-full border-2 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.4)] object-cover"
                   />
