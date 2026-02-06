@@ -236,7 +236,12 @@ export default function HomePage() {
               {/* Description - fixed height to prevent layout shift */}
               <div className="h-[60px] sm:h-[50px] mb-6 sm:mb-8">
                 <p className="text-base sm:text-lg md:text-xl text-slate-400 max-w-2xl font-light leading-relaxed drop-shadow-[0_0_10px_rgba(148,163,184,0.2)]">
-                  <EncryptedText text="Trusted by Defense, Government & Critical Infrastructure." startDelay={2500} />
+                  {/* Static text on mobile to prevent layout shift */}
+                  <span className="sm:hidden">Trusted by Defense, Government & Critical Infrastructure.</span>
+                  {/* Animated text on larger screens */}
+                  <span className="hidden sm:inline">
+                    <EncryptedText text="Trusted by Defense, Government & Critical Infrastructure." startDelay={2500} />
+                  </span>
                 </p>
               </div>
 
