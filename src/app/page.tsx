@@ -541,6 +541,31 @@ export default function HomePage() {
                 </div>
               </div>
 
+              {/* iOS & Android - Coming Soon */}
+              <div className="relative group md:col-span-2 lg:col-span-2 lg:col-start-2">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/10 to-teal-500/10 rounded-2xl blur-lg opacity-30 group-hover:opacity-60 transition-opacity" />
+                <div className="relative p-6 rounded-2xl bg-black/40 border border-blue-500/20 backdrop-blur-xl shadow-[0_0_30px_rgba(59,130,246,0.05),inset_0_1px_0_rgba(255,255,255,0.03)] h-full opacity-80 group-hover:opacity-100 transition-opacity">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-20 h-20 mb-4 relative flex items-center justify-center">
+                      <div className="absolute inset-0 bg-blue-500/20 rounded-2xl blur-md group-hover:blur-lg transition-all" />
+                      <div className="relative z-10 w-16 h-16 rounded-xl border-2 border-slate-700/50 bg-slate-900/80 flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform duration-500 group-hover:border-blue-500/50">
+                        <div className="absolute top-2 w-4 h-1 bg-slate-800 rounded-full" />
+                        <Shield className="w-8 h-8 text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                      </div>
+                      {/* Floating elements to simulate 3D */}
+                      <div className="absolute -right-2 top-0 w-6 h-6 bg-cyan-500/20 rounded-full blur-md animate-pulse" />
+                      <div className="absolute -left-2 bottom-0 w-8 h-8 bg-blue-500/10 rounded-full blur-md animate-pulse" style={{ animationDelay: '1s' }} />
+                    </div>
+                    <h3 className="text-lg font-bold text-white/80 mb-1">Mobile App</h3>
+                    <p className="text-sm text-slate-500 mb-3">iOS & Android</p>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
+                      <Clock className="w-3 h-3" />
+                      Coming Soon
+                    </span>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </section>
