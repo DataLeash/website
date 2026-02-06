@@ -4,6 +4,17 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, X, Lock, MessageCircle } from 'lucide-react'
 import Image from 'next/image'
 
+// Hook for dynamic base path (works locally and on GitHub Pages)
+function useBasePath() {
+    const [basePath, setBasePath] = useState('')
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/website')) {
+            setBasePath('/website')
+        }
+    }, [])
+    return basePath
+}
+
 interface Message {
     role: 'user' | 'assistant'
     content: string
@@ -67,6 +78,7 @@ function ShinyText({ children, className = '' }: { children: React.ReactNode, cl
 }
 
 export function AIChatbot() {
+    const basePath = useBasePath()
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>([
         { role: 'assistant', content: 'Hello! I\'m here to help you learn about DataLeash and our security solutions. What would you like to know?', isNew: false }
@@ -176,7 +188,7 @@ export function AIChatbot() {
                         {/* Avatar Image */}
                         <div className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-lg">
                             <Image
-                                src="/website/cerberus-avatar.png"
+                                src={`${basePath}/cerberus-avatar.png`}
                                 alt="DataLeash Assistant"
                                 fill
                                 className="object-cover"

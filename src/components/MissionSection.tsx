@@ -2,8 +2,21 @@
 
 import { Shield, Globe, Users, Award } from 'lucide-react'
 import { DataLeashLogo } from './DataLeashLogo'
+import { useState, useEffect } from 'react'
+
+function useBasePath() {
+    const [basePath, setBasePath] = useState('')
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/website')) {
+            setBasePath('/website')
+        }
+    }, [])
+    return basePath
+}
 
 export function MissionSection() {
+    const basePath = useBasePath()
+    
     return (
         <section className="py-24 px-6 relative overflow-hidden border-b border-slate-800">
             {/* Background Video */}
@@ -15,7 +28,7 @@ export function MissionSection() {
                     playsInline
                     className="w-full h-full object-cover opacity-60 mix-blend-luminosity"
                 >
-                    <source src="/website/video2.mp4" type="video/mp4" />
+                    <source src={`${basePath}/video2.mp4`} type="video/mp4" />
                 </video>
                 {/* Heavy Overlay for readability */}
                 <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]" />
@@ -78,7 +91,7 @@ export function MissionSection() {
                                     playsInline
                                     className="w-full h-full object-cover opacity-30"
                                 >
-                                    <source src="/website/questionvideo.mp4" type="video/mp4" />
+                                    <source src={`${basePath}/questionvideo.mp4`} type="video/mp4" />
                                 </video>
                                 {/* Dark overlay for text readability */}
                                 <div className="absolute inset-0 bg-black/70" />
